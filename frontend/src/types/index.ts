@@ -1,0 +1,38 @@
+export type UserRole = 'USER' | 'VERIFIED_USER' | 'MODERATOR' | 'ADMIN'
+export type ContentStatus = 'ACTIVE' | 'CENSORED' | 'DELETED'
+export type ReactionType = 'HEART' | 'LAUGH' | 'WOW' | 'CLAP' | 'SMILE'
+export type BanDuration = 'SHORT' | 'MEDIUM' | 'LONG' | 'PERMANENT'
+export type ReportTarget = 'USER' | 'CONTENT' | 'COMMENT'
+export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
+
+export interface UserSummary {
+  id: number; username: string; displayName: string
+  avatarUrl?: string; role: UserRole; verified: boolean
+}
+export interface UserProfile extends UserSummary {
+  bio?: string; followersCount: number; followingCount: number
+  isFollowedByMe: boolean; createdAt: string
+}
+export interface ThemeResponse { id: number; name: string; description?: string; iconEmoji?: string }
+export interface AlterEgoResponse { id: number; name: string; description?: string; avatarUrl?: string; owner: UserSummary }
+export interface ContentResponse {
+  id: number; title: string; body?: string; mediaUrl?: string
+  author: UserSummary; alterEgo?: AlterEgoResponse; theme?: ThemeResponse
+  status: ContentStatus; reactionsCount: number; commentsCount: number
+  reactionsByType: Record<string, number>; myReaction?: string
+  dedications: Array<{ from: UserSummary; to: UserSummary }>
+  createdAt: string; updatedAt: string
+}
+export interface CommentResponse {
+  id: number; text: string; author: UserSummary
+  parentId?: number; status: ContentStatus; createdAt: string
+}
+export interface MessageResponse {
+  id: number; sender: UserSummary; recipient: UserSummary
+  text: string; readByRecipient: boolean; sentAt: string
+}
+export interface Page<T> {
+  content: T[]; totalElements: number; totalPages: number
+  number: number; size: number; last: boolean
+}
+export interface AuthResponse { token: string; user: UserSummary }

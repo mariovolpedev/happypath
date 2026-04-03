@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+happypath:
+  jwt:
+    secret: "test-secret-key-for-junit-tests-must-be-256-bits-long!!"
+    expiration-ms: 86400000
+  cors:
+    allowed-origins: "http://localhost:*"

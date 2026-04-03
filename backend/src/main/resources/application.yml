@@ -1,0 +1,79 @@
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  application:
+    name: happypath-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/happypath
+    username: happypath_user
+    password: happypath_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    generate-ddl: true
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+springdoc:
+  swagger-ui:
+    operationsSorter: method
+  api-docs:
+    path: "/v3/api-docs"
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+server:
+  port: 8080
+  servlet:
+    context-path: "/api"
+logging:
+  level:
+    org:
+      springframework: DEBUG
+happypath:
+  jwt:
+    secret: "happypath-super-secret-key-change-in-production-must-be-256-bits-long"
+    expiration-ms: 86400000       # 24 ore
+    refresh-expiration-ms: 604800000  # 7 giorni
+#  cors:
+#    allowed-origins: "http://localhost:5173,http://localhost:3000"
+
+#---
+#spring:
+#  config:
+#    activate:
+#      on-profile: dev
+#  datasource:
+#    url: jdbc:h2:mem:happypath_dev
+#    username: sa
+#    password:
+#    driver-class-name: org.h2.Driver
+#  h2:
+#    console:
+#      enabled: true
+#  jpa:
+#    hibernate:
+#      ddl-auto: create-drop
+#    properties:
+#      hibernate:
+#        dialect: org.hibernate.dialect.H2Dialect

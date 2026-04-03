@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: happypath-db
+    environment:
+      POSTGRES_DB: happypath
+      POSTGRES_USER: happypath_user
+      POSTGRES_PASSWORD: happypath_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U happypath_user -d happypath"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: happypath-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/happypath
+      SPRING_DATASOURCE_USERNAME: happypath_user
+      SPRING_DATASOURCE_PASSWORD: happypath_pass
+      HAPPYPATH_JWT_SECRET: "change-this-in-production-must-be-256-bits-long!!"
+      HAPPYPATH_CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  frontend:
+    build: ./frontend
+    container_name: happypath-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:
