@@ -21,7 +21,10 @@ public class ReactionService {
         if (content.getStatus() != ContentStatus.ACTIVE)
             throw new HappyPathException("Contenuto non disponibile", HttpStatus.BAD_REQUEST);
 
-        reactionRepository.findByUserAndContent(user, content).ifPresent(reactionRepository::delete);
+        reactionRepository.findByUserAndContent(user, content).ifPresent(existingReaction -> {
+            reactionRepository.delete(existingReaction);
+            reactionRepository.flush();
+        });
         reactionRepository.save(Reaction.builder().user(user).content(content).type(type).build());
     }
 
