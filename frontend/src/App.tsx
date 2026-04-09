@@ -8,6 +8,7 @@ import CreateContentPage from './pages/CreateContentPage'
 import ContentDetailPage from './pages/ContentDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import ModerationPage from './pages/ModerationPage'
+import SearchPage from './pages/SearchPage'
 import { useAuthStore } from './store/authStore'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<ExplorePage />} />
         <Route path="/home" element={<PrivateRoute><HomePage /></PrivateRoute>} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/create" element={<PrivateRoute><CreateContentPage /></PrivateRoute>} />

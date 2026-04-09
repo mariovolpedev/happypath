@@ -18,4 +18,13 @@ public interface ContentRepository extends JpaRepository<Content, Long> {
            "(SELECT f.followed.id FROM Follow f WHERE f.follower.id = :userId) " +
            "ORDER BY c.createdAt DESC")
     Page<Content> findHomeFeed(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT c FROM Content c WHERE c.status = 'ACTIVE' " +
+           "AND (LOWER(c.title) LIKE LOWER(CONCAT('%', :q, '%')) " +
+           "     OR LOWER(c.body) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+           "AND (:themeId IS NULL OR c.theme.id = :themeId) " +
+           "ORDER BY c.createdAt DESC")
+    Page<Content> searchContents(@Param("q") String q,
+                                 @Param("themeId") Long themeId,
+                                 Pageable pageable);
 }

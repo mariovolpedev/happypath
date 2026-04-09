@@ -76,11 +76,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/users/*/contents").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/reactions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/comments-activity").permitAll()
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
-                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/search").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
