@@ -21,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final NotificationService notificationService;
 
     public User findByUsername(String username) {
         return userRepository.findByUsername(username)
@@ -60,6 +61,7 @@ public class UserService {
         if (followRepository.existsByFollowerAndFollowed(follower, target))
             throw new HappyPathException("Segui già questo utente", HttpStatus.CONFLICT);
         followRepository.save(Follow.builder().follower(follower).followed(target).build());
+        notificationService.notifyFollow(follower, target);
     }
 
     @Transactional

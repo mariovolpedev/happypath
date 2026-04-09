@@ -19,6 +19,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final ContentService contentService;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @Transactional
     public CommentResponse addComment(Long contentId, CommentRequest req, User author) {
@@ -37,7 +38,9 @@ public class CommentService {
             builder.parent(parent);
         }
 
-        return toResponse(commentRepository.save(builder.build()));
+        Comment saved = commentRepository.save(builder.build());
+        notificationService.notifyComment(author, content, saved);
+        return toResponse(saved);
     }
 
     public Page<CommentResponse> getComments(Long contentId, Pageable pageable) {

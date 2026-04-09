@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import NotificationBell from '../common/NotificationBell'
 
 export default function Navbar() {
   const { user, logout, isAuthenticated, isModeratorOrAdmin } = useAuthStore()
@@ -22,6 +23,7 @@ export default function Navbar() {
               {isModeratorOrAdmin() && (
                 <Link to="/moderation" className="btn-secondary text-sm">🛡️ Mod</Link>
               )}
+              <NotificationBell />
               <Link to={`/u/${user?.username}`} className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-happy-600">
                 {user?.verified && <span title="Verificato">✅</span>}
                 {user?.displayName}

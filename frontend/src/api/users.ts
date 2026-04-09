@@ -15,3 +15,24 @@ export const search = (q: string) =>
 
 export const getUserContents = (username: string, page = 0) =>
   api.get<Page<ContentResponse>>(`/users/${username}/contents`, { params: { page } }).then(r => r.data)
+
+export interface UserReactionResponse {
+  id: number
+  content: { id: number; title: string; mediaUrl?: string }
+  reactionType: string
+  createdAt: string
+}
+
+export interface UserCommentActivityResponse {
+  id: number
+  text: string
+  content: { id: number; title: string }
+  status: string
+  createdAt: string
+}
+
+export const getUserReactions = (username: string, page = 0) =>
+  api.get<Page<UserReactionResponse>>(`/users/${username}/reactions`, { params: { page } }).then(r => r.data)
+
+export const getUserCommentsActivity = (username: string, page = 0) =>
+  api.get<Page<UserCommentActivityResponse>>(`/users/${username}/comments-activity`, { params: { page } }).then(r => r.data)
