@@ -1,89 +1,401 @@
 import { useState, useEffect } from 'react'
-import { getPendingReports, resolveReport, censorContent, deleteContentByMod, warnUser, banUser } from '../api/moderation'
+import { Link } from 'react-router-dom'
+import { formatDistanceToNow } from 'date-fns'
+import { it } from 'date-fns/locale'
+import {
+  getPendingReports,
+  resolveReport,
+  censorContent,
+  deleteContentByMod,
+  warnUser,
+  banUser,
+} from '../api/moderation'
 
-interface Report { id: number; reporter: { displayName: string }; targetType: string; targetId: number; reason: string; status: string; createdAt: string }
+// ── Tipi ─────────────────────────────────────────────────────────────────────
+
+interface UserSummary {
+  id: number
+  username: string
+  displayName: string
+  avatarUrl?: string
+  role: string
+  verified: boolean
+}
+
+interface ContentDetail {
+  id: number
+  title: string
+  body?: string
+  mediaUrl?: string
+  author: UserSummary
+  theme?: { name: string; iconEmoji?: string }
+  createdAt: string
+}
+
+interface Report {
+  id: number
+  reporter: UserSummary
+  targetType: 'USER' | 'CONTENT' | 'COMMENT'
+  targetId: number
+  reason: string
+  status: string
+  createdAt: string
+  // campi arricchiti dal backend
+  targetUser?: UserSummary
+  targetContent?: ContentDetail
+  targetCommentText?: string
+}
+
+// ── Componenti ausiliari ──────────────────────────────────────────────────────
+
+function UserChip({ user, label }: { user: UserSummary; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide w-20 shrink-0">
+        {label}
+      </span>
+      <Link
+        to={`/u/${user.username}`}
+        className="flex items-center gap-1.5 text-sm text-happy-700 font-medium hover:underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {user.verified && <span title="Verificato">✅</span>}
+        {user.displayName}
+        <span className="text-gray-400 font-normal">@{user.username}</span>
+        <span className="text-xs text-gray-400">↗</span>
+      </Link>
+    </div>
+  )
+}
+
+function ContentPreview({ content }: { content: ContentDetail }) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold text-gray-800 line-clamp-2">{content.title}</p>
+        <Link
+          to={`/content/${content.id}`}
+          className="text-xs text-happy-600 hover:underline shrink-0"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Apri ↗
+        </Link>
+      </div>
+      {content.body && (
+        <p className="text-gray-500 line-clamp-3">{content.body}</p>
+      )}
+      {content.mediaUrl && (
+        <img
+          src={content.mediaUrl}
+          alt={content.title}
+          className="w-full max-h-40 object-cover rounded-lg"
+        />
+      )}
+      <div className="flex items-center gap-2 pt-1 border-t border-gray-200">
+        <span className="text-gray-400">Autore:</span>
+        <Link
+          to={`/u/${content.author.username}`}
+          className="text-happy-700 font-medium hover:underline flex items-center gap-1"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {content.author.verified && <span>✅</span>}
+          {content.author.displayName}
+          <span className="text-gray-400 font-normal">@{content.author.username}</span>
+          <span className="text-xs">↗</span>
+        </Link>
+        {content.theme && (
+          <span className="ml-auto text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+            {content.theme.iconEmoji} {content.theme.name}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Pagina principale ─────────────────────────────────────────────────────────
 
 export default function ModerationPage() {
-  const [reports, setReports] = useState<Report[]>([])
-  const [selected, setSelected] = useState<Report | null>(null)
-  const [note, setNote] = useState('')
+  const [reports, setReports]     = useState<Report[]>([])
+  const [selected, setSelected]   = useState<Report | null>(null)
+  const [note, setNote]           = useState('')
   const [banDuration, setBanDuration] = useState('SHORT')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]     = useState(false)
+  const [fetching, setFetching]   = useState(true)
 
   useEffect(() => {
-    getPendingReports().then((p: any) => setReports(p.content ?? []))
+    getPendingReports()
+      .then((p: any) => setReports(p.content ?? []))
+      .finally(() => setFetching(false))
   }, [])
+
+  const removeReport = (id: number) => {
+    setReports(r => r.filter(x => x.id !== id))
+    if (selected?.id === id) { setSelected(null); setNote('') }
+  }
 
   const handleAction = async (action: string) => {
     if (!selected) return
     setLoading(true)
     try {
       switch (action) {
-        case 'dismiss': await resolveReport(selected.id, note, true); break
+        case 'dismiss': await resolveReport(selected.id, note, true);  break
         case 'resolve': await resolveReport(selected.id, note, false); break
-        case 'censor': await censorContent(selected.targetId, note); break
-        case 'delete': await deleteContentByMod(selected.targetId, note); break
-        case 'warn': await warnUser(selected.targetId, note); break
-        case 'ban': await banUser(selected.targetId, note, banDuration); break
+        case 'censor':  await censorContent(selected.targetId, note);  break
+        case 'delete':  await deleteContentByMod(selected.targetId, note); break
+        case 'warn':    await warnUser(selected.targetId, note);       break
+        case 'ban':     await banUser(selected.targetId, note, banDuration); break
       }
-      setReports(r => r.filter(x => x.id !== selected.id))
-      setSelected(null); setNote('')
-    } finally { setLoading(false) }
+      removeReport(selected.id)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div>
-        <h1 className="font-display font-bold text-xl mb-4">🛡️ Pannello Moderazione</h1>
-        {reports.length === 0
-          ? <p className="text-gray-400 text-center py-8">Nessuna segnalazione in attesa 🎉</p>
-          : <div className="space-y-3">
-            {reports.map(r => (
-              <button key={r.id} onClick={() => setSelected(r)}
-                className={`card w-full text-left hover:shadow-md transition-shadow ${selected?.id === r.id ? 'ring-2 ring-happy-400' : ''}`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold uppercase text-gray-400">{r.targetType} #{r.targetId}</span>
-                  <span className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString('it')}</span>
-                </div>
-                <p className="text-sm text-gray-700 line-clamp-2">{r.reason}</p>
-                <p className="text-xs text-gray-400 mt-1">Segnalato da: {r.reporter.displayName}</p>
-              </button>
-            ))}
-          </div>
-        }
-      </div>
+  // Label breve per la lista
+  const reportSummary = (r: Report) => {
+    if (r.targetType === 'USER'    && r.targetUser)    return `@${r.targetUser.username}`
+    if (r.targetType === 'CONTENT' && r.targetContent) return `"${r.targetContent.title}"`
+    if (r.targetType === 'COMMENT' && r.targetCommentText)
+      return `"${r.targetCommentText.slice(0, 40)}…"`
+    return `ID ${r.targetId}`
+  }
 
-      {selected && (
-        <div className="card sticky top-24 h-fit">
-          <h2 className="font-display font-bold text-lg mb-4">Azione su segnalazione #{selected.id}</h2>
-          <div className="bg-gray-50 rounded-xl p-3 mb-4 text-sm">
-            <p><strong>Tipo:</strong> {selected.targetType} (ID: {selected.targetId})</p>
-            <p className="mt-1"><strong>Motivo:</strong> {selected.reason}</p>
-          </div>
-          <textarea className="input resize-none h-24 mb-4" placeholder="Note (obbligatorio per ban/ammonizione)..."
-            value={note} onChange={e => setNote(e.target.value)} />
-          {selected.targetType === 'USER' && (
-            <select className="input mb-4" value={banDuration} onChange={e => setBanDuration(e.target.value)}>
-              <option value="SHORT">Ban breve (1 giorno)</option>
-              <option value="MEDIUM">Ban medio (7 giorni)</option>
-              <option value="LONG">Ban lungo (30 giorni)</option>
-              <option value="PERMANENT">Ban permanente</option>
-            </select>
+  const typeColor = (t: string) =>
+    t === 'USER'    ? 'bg-purple-100 text-purple-700' :
+    t === 'CONTENT' ? 'bg-blue-100 text-blue-700'     :
+                      'bg-gray-100 text-gray-600'
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <h1 className="font-display font-bold text-2xl mb-6">🛡️ Pannello Moderazione</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
+
+        {/* ── Lista segnalazioni ─────────────────────────────────── */}
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500 mb-3">
+            {reports.length === 0
+              ? 'Nessuna segnalazione in attesa 🎉'
+              : `${reports.length} segnalazion${reports.length === 1 ? 'e' : 'i'} in attesa`}
+          </p>
+
+          {fetching && (
+            <div className="flex justify-center py-8">
+              <div className="w-8 h-8 border-4 border-happy-200 border-t-happy-500 rounded-full animate-spin" />
+            </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => handleAction('dismiss')} disabled={loading} className="btn-secondary text-sm">Ignora</button>
-            <button onClick={() => handleAction('resolve')} disabled={loading} className="btn-secondary text-sm">✅ Risolvi</button>
-            {selected.targetType === 'CONTENT' && <>
-              <button onClick={() => handleAction('censor')} disabled={loading} className="bg-yellow-100 text-yellow-700 rounded-full px-3 py-2 text-sm font-medium hover:bg-yellow-200">Censura</button>
-              <button onClick={() => handleAction('delete')} disabled={loading} className="bg-red-100 text-red-700 rounded-full px-3 py-2 text-sm font-medium hover:bg-red-200">Elimina</button>
-            </>}
-            {selected.targetType === 'USER' && <>
-              <button onClick={() => handleAction('warn')} disabled={loading || !note} className="bg-yellow-100 text-yellow-700 rounded-full px-3 py-2 text-sm font-medium hover:bg-yellow-200">Ammonisci</button>
-              <button onClick={() => handleAction('ban')} disabled={loading || !note} className="bg-red-100 text-red-700 rounded-full px-3 py-2 text-sm font-medium hover:bg-red-200">🔨 Ban</button>
-            </>}
-          </div>
+
+          {reports.map(r => (
+            <button
+              key={r.id}
+              onClick={() => { setSelected(r); setNote('') }}
+              className={`w-full text-left rounded-2xl border p-4 transition-all ${
+                selected?.id === r.id
+                  ? 'border-happy-400 bg-happy-50 shadow-sm'
+                  : 'border-gray-100 bg-white hover:shadow-sm hover:border-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${typeColor(r.targetType)}`}>
+                  {r.targetType}
+                </span>
+                <span className="text-xs text-gray-400 ml-auto">
+                  {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true, locale: it })}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-gray-800 line-clamp-1">{reportSummary(r)}</p>
+              <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{r.reason}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Segnalato da{' '}
+                <span className="font-medium text-gray-600">@{r.reporter.username}</span>
+              </p>
+            </button>
+          ))}
         </div>
-      )}
+
+        {/* ── Pannello dettaglio ─────────────────────────────────── */}
+        {selected ? (
+          <div className="card space-y-5 sticky top-24">
+
+            {/* Intestazione */}
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg">
+                Segnalazione #{selected.id}
+              </h2>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typeColor(selected.targetType)}`}>
+                {selected.targetType}
+              </span>
+            </div>
+
+            {/* ── Chi ha segnalato ── */}
+            <section>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                Chi ha segnalato
+              </h3>
+              <UserChip user={selected.reporter} label="Segnalatore" />
+            </section>
+
+            {/* ── Oggetto della segnalazione ── */}
+            <section>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                Oggetto segnalato
+              </h3>
+
+              {selected.targetType === 'USER' && selected.targetUser && (
+                <div className="bg-purple-50 rounded-xl p-3 space-y-2">
+                  <UserChip user={selected.targetUser} label="Utente" />
+                  <div className="flex gap-2 text-xs text-gray-500 pl-[88px]">
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${
+                      selected.targetUser.role === 'ADMIN'         ? 'bg-red-100 text-red-700'    :
+                      selected.targetUser.role === 'MODERATOR'     ? 'bg-blue-100 text-blue-700'  :
+                      selected.targetUser.role === 'VERIFIED_USER' ? 'bg-green-100 text-green-700':
+                                                                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {selected.targetUser.role}
+                    </span>
+                    {selected.targetUser.verified && (
+                      <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                        ✅ Verificato
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selected.targetType === 'USER' && !selected.targetUser && (
+                <p className="text-sm text-gray-400 italic">Utente non più disponibile (ID {selected.targetId})</p>
+              )}
+
+              {selected.targetType === 'CONTENT' && selected.targetContent && (
+                <ContentPreview content={selected.targetContent} />
+              )}
+
+              {selected.targetType === 'CONTENT' && !selected.targetContent && (
+                <p className="text-sm text-gray-400 italic">Contenuto non più disponibile (ID {selected.targetId})</p>
+              )}
+
+              {selected.targetType === 'COMMENT' && (
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-1">Testo del commento</p>
+                  <p className="text-sm text-gray-700">
+                    {selected.targetCommentText ?? <em className="text-gray-400">Commento non più disponibile</em>}
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* ── Motivo segnalazione ── */}
+            <section>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                Motivo della segnalazione
+              </h3>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-gray-700">
+                {selected.reason}
+              </div>
+            </section>
+
+            {/* ── Azioni moderatore ── */}
+            <section className="space-y-3 pt-1 border-t border-gray-100">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                Azione moderatore
+              </h3>
+
+              <textarea
+                className="input resize-none h-20 text-sm"
+                placeholder="Note interne (obbligatorie per ban e ammonizioni)..."
+                value={note}
+                onChange={e => setNote(e.target.value)}
+              />
+
+              {selected.targetType === 'USER' && (
+                <select
+                  className="input text-sm"
+                  value={banDuration}
+                  onChange={e => setBanDuration(e.target.value)}
+                >
+                  <option value="SHORT">Ban breve – 1 giorno</option>
+                  <option value="MEDIUM">Ban medio – 7 giorni</option>
+                  <option value="LONG">Ban lungo – 30 giorni</option>
+                  <option value="PERMANENT">Ban permanente</option>
+                </select>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                {/* Risolvi / Ignora — sempre disponibili */}
+                <button
+                  onClick={() => handleAction('dismiss')}
+                  disabled={loading}
+                  className="btn-secondary text-sm justify-center"
+                >
+                  🙈 Ignora
+                </button>
+                <button
+                  onClick={() => handleAction('resolve')}
+                  disabled={loading}
+                  className="btn-secondary text-sm justify-center"
+                >
+                  ✅ Risolvi
+                </button>
+
+                {/* Azioni specifiche per CONTENT */}
+                {selected.targetType === 'CONTENT' && (
+                  <>
+                    <button
+                      onClick={() => handleAction('censor')}
+                      disabled={loading}
+                      className="rounded-full px-3 py-2 text-sm font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors justify-center flex items-center gap-1"
+                    >
+                      🙊 Censura
+                    </button>
+                    <button
+                      onClick={() => handleAction('delete')}
+                      disabled={loading}
+                      className="rounded-full px-3 py-2 text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors justify-center flex items-center gap-1"
+                    >
+                      🗑️ Elimina
+                    </button>
+                  </>
+                )}
+
+                {/* Azioni specifiche per USER */}
+                {selected.targetType === 'USER' && (
+                  <>
+                    <button
+                      onClick={() => handleAction('warn')}
+                      disabled={loading || !note.trim()}
+                      className="rounded-full px-3 py-2 text-sm font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200 disabled:opacity-40 transition-colors justify-center flex items-center gap-1"
+                    >
+                      ⚠️ Ammonisci
+                    </button>
+                    <button
+                      onClick={() => handleAction('ban')}
+                      disabled={loading || !note.trim()}
+                      className="rounded-full px-3 py-2 text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-40 transition-colors justify-center flex items-center gap-1"
+                    >
+                      🔨 Ban
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {loading && (
+                <p className="text-center text-sm text-gray-400 animate-pulse">
+                  Azione in corso…
+                </p>
+              )}
+            </section>
+          </div>
+        ) : (
+          <div className="card text-center py-16 text-gray-400 sticky top-24">
+            <p className="text-3xl mb-3">👈</p>
+            <p className="font-medium">Seleziona una segnalazione per vedere i dettagli</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

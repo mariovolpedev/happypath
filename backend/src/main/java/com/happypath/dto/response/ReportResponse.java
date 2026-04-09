@@ -12,5 +12,14 @@ public record ReportResponse(
         String reason,
         ReportStatus status,
         String reviewNote,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        /** Popolato quando targetType = USER */
+        UserSummary targetUser,
+
+        /** Popolato quando targetType = CONTENT */
+        ContentResponse targetContent,
+
+        /** Popolato quando targetType = COMMENT */
+        String targetCommentText
 ) {}
