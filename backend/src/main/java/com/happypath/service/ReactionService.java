@@ -23,7 +23,10 @@ public class ReactionService {
             throw new HappyPathException("Contenuto non disponibile", HttpStatus.BAD_REQUEST);
 
         boolean isNew = reactionRepository.findByUserAndContent(user, content).isEmpty();
-        reactionRepository.findByUserAndContent(user, content).ifPresent(reactionRepository::delete);
+        reactionRepository.findByUserAndContent(user, content).ifPresent(reaction -> {
+                reactionRepository.delete(reaction);
+                reactionRepository.flush();
+        });
         reactionRepository.save(Reaction.builder().user(user).content(content).type(type).build());
 
         if (isNew) {

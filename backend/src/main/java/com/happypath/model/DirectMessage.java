@@ -29,6 +29,19 @@ public class DirectMessage {
     @Builder.Default
     private boolean readByRecipient = false;
 
+    /**
+     * Optional: ID of a Content the user is sharing inside the message.
+     * The full ContentResponse is resolved at query time by the service.
+     */
+    @Column(name = "attached_content_id")
+    private Long attachedContentId;
+
+    /**
+     * Optional: ID of a User profile being shared in the message.
+     */
+    @Column(name = "attached_user_id")
+    private Long attachedUserId;
+
     @CreationTimestamp
     private LocalDateTime sentAt;
 }
