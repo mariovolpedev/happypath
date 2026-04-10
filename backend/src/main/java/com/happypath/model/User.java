@@ -37,6 +37,13 @@ public class User {
 
     private String avatarUrl;
 
+    /**
+     * Colore personalizzato del profilo (es. "#22c55e").
+     * Usato come accent color nella pagina profilo dell'utente.
+     */
+    @Column(length = 7)
+    private String profileColor;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

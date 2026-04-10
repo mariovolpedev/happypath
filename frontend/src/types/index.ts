@@ -16,6 +16,7 @@ export interface UserSummary {
 
 export interface UserProfile extends UserSummary {
   bio?: string
+  profileColor?: string   // hex, e.g. "#22c55e"
   followersCount: number
   followingCount: number
   isFollowedByMe: boolean

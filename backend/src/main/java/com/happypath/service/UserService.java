@@ -38,10 +38,7 @@ public class UserService {
         boolean isFollowed = currentUser != null && followRepository.existsByFollowerAndFollowed(currentUser, target);
         long followers = followRepository.countByFollowed(target);
         long following = followRepository.countByFollower(target);
-        return new UserProfile(
-                target.getId(), target.getUsername(), target.getDisplayName(),
-                target.getBio(), target.getAvatarUrl(), target.getRole(), target.isVerified(),
-                followers, following, isFollowed, target.getCreatedAt());
+        return toProfile(target, followers, following, isFollowed);
     }
 
     @Transactional
@@ -80,5 +77,13 @@ public class UserService {
 
     public UserSummary toSummary(User u) {
         return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(), u.getAvatarUrl(), u.getRole(), u.isVerified());
+    }
+
+    private UserProfile toProfile(User target, long followers, long following, boolean isFollowed) {
+        return new UserProfile(
+                target.getId(), target.getUsername(), target.getDisplayName(),
+                target.getBio(), target.getAvatarUrl(), target.getProfileColor(),
+                target.getRole(), target.isVerified(),
+                followers, following, isFollowed, target.getCreatedAt());
     }
 }

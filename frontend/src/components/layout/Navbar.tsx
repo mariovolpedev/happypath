@@ -3,12 +3,22 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { getUnreadCount } from '../../api/messages'
 import NotificationBell from '../common/NotificationBell'
+import { useThemeStore, ThemeMode } from '../../store/themeStore'
+
+const THEME_OPTIONS: { mode: ThemeMode; label: string; icon: string }[] = [
+  { mode: 'light',  label: 'Chiaro',    icon: '☀️' },
+  { mode: 'dark',   label: 'Scuro',     icon: '🌙' },
+  { mode: 'system', label: 'Sistema',   icon: '💻' },
+]
 
 export default function Navbar() {
   const { user, logout, isAuthenticated, isModeratorOrAdmin } = useAuthStore()
+  const { mode, setMode } = useThemeStore()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [unread, setUnread] = useState(0)
+  const currentTheme = THEME_OPTIONS.find(t => t.mode === mode) ?? THEME_OPTIONS[2]
+  const nextTheme = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
 
   const handleLogout = () => {
     logout()
@@ -40,7 +50,8 @@ export default function Navbar() {
   }, [isAuthenticated()])
 
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <nav className="border-b sticky top-0 z-50 transition-colors duration-200"
+         style={{ backgroundColor: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link
           to="/"
@@ -66,8 +77,22 @@ export default function Navbar() {
             🔍
           </button>
         </form>
+        
+        
 
         <div className="flex items-center gap-3 shrink-0">
+          
+          {/* ── Theme toggle ── */}
+          <button
+            onClick={() => setMode(nextTheme.mode)}
+            title={`Passa a: ${nextTheme.label}`}
+            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors
+                       hover:bg-gray-100 dark:hover:bg-gray-800 text-base"
+            aria-label="Cambia tema"
+          >
+            {currentTheme.icon}
+          </button>
+          
           {isAuthenticated() ? (
             <>
               <Link to="/home" className="btn-secondary text-sm">
@@ -101,7 +126,8 @@ export default function Navbar() {
               <NotificationBell />
               <Link
                 to={`/u/${user?.username}`}
-                className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-happy-600"
+                className="flex items-center gap-1.5 text-sm font-medium hover:text-happy-600 transition-colors"
+                style={{ color: 'var(--text-primary)' }}
               >
                 {user?.verified && <span title="Verificato">✅</span>}
                 {user?.displayName}
@@ -109,8 +135,8 @@ export default function Navbar() {
 
               <button
                 onClick={handleLogout}
-                className="text-sm text-gray-400 hover:text-red-500"
-              >
+                className="text-sm hover:text-red-500 transition-colors"
+                      style={{ color: 'var(--text-faint)' }}>
                 Esci
               </button>
             </>

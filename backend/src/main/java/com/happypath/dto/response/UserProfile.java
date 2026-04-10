@@ -9,6 +9,7 @@ public record UserProfile(
         String displayName,
         String bio,
         String avatarUrl,
+        String profileColor,
         UserRole role,
         boolean verified,
         long followersCount,

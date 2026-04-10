@@ -4,7 +4,7 @@ import type { UserProfile, UserSummary, Page, ContentResponse } from '../types'
 export const getProfile = (username: string) =>
   api.get<UserProfile>(`/users/${username}/profile`).then(r => r.data)
 
-export const updateProfile = (data: { displayName?: string; bio?: string; avatarUrl?: string }) =>
+export const updateProfile = (data: { displayName?: string; bio?: string; avatarUrl?: string; profileColor?: string }) =>
   api.patch<UserProfile>('/users/me', data).then(r => r.data)
 
 export const follow = (id: number) => api.post(`/users/${id}/follow`)

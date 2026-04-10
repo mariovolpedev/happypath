@@ -3,22 +3,59 @@
 @tailwind utilities;
 
 @layer base {
+  /* -- Light mode (default) -- */
+  :root {
+    --bg-base:      #fffbeb;   /* amber-50  */
+    --bg-card:      #ffffff;
+    --bg-nav:       #ffffff;
+    --border:       #f3f4f6;   /* gray-100  */
+    --text-primary: #1f2937;   /* gray-800  */
+    --text-muted:   #6b7280;   /* gray-500  */
+    --text-faint:   #9ca3af;   /* gray-400  */
+    --shadow:       0 1px 3px rgba(0,0,0,.08);
+  }
+
+  /* -- Dark mode -- */
+  .dark {
+    --bg-base:      #0f1117;
+    --bg-card:      #1a1d27;
+    --bg-nav:       #13151f;
+    --border:       #2a2d3a;
+    --text-primary: #f1f5f9;
+    --text-muted:   #94a3b8;
+    --text-faint:   #64748b;
+    --shadow:       0 1px 3px rgba(0,0,0,.4);
+  }
+
   body {
-    @apply bg-amber-50 text-gray-800 antialiased;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    @apply antialiased transition-colors duration-200;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-happy-500 hover:bg-happy-600 text-white font-semibold rounded-full transition-all shadow-sm disabled:opacity-50;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-happy-500 hover:bg-happy-600
+           text-white font-semibold rounded-full transition-all shadow-sm disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-full transition-all;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1d27]
+           border border-gray-200 dark:border-[#2a2d3a]
+           hover:bg-gray-50 dark:hover:bg-[#22253a]
+           text-gray-700 dark:text-[#94a3b8]
+           font-medium rounded-full transition-all;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-5;
+    @apply rounded-2xl shadow-sm border p-5 transition-colors duration-200;
+    background-color: var(--bg-card);
+    border-color: var(--border);
   }
   .input {
-    @apply w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-happy-400 bg-white placeholder-gray-400;
+    @apply w-full px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-happy-400
+           placeholder-gray-400 dark:placeholder-gray-600 transition-colors duration-200;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
   }
 }
