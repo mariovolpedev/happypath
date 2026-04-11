@@ -4,6 +4,7 @@ export type ReactionType = 'HEART' | 'LAUGH' | 'WOW' | 'CLAP' | 'SMILE'
 export type BanDuration = 'SHORT' | 'MEDIUM' | 'LONG' | 'PERMANENT'
 export type ReportTarget = 'USER' | 'CONTENT' | 'COMMENT'
 export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
+export type AlterEgoVerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface UserSummary {
   id: number
@@ -16,11 +17,11 @@ export interface UserSummary {
 
 export interface UserProfile extends UserSummary {
   bio?: string
-  profileColor?: string   // hex, e.g. "#22c55e"
+  profileColor?: string
   followersCount: number
   followingCount: number
   isFollowedByMe: boolean
-  isBlockedByMe: boolean  // true if the current user has blocked this profile
+  isBlockedByMe: boolean
   createdAt: string
 }
 
@@ -37,6 +38,23 @@ export interface AlterEgoResponse {
   description?: string
   avatarUrl?: string
   owner: UserSummary
+  verified: boolean   // ← aggiunto per feature verifica
+}
+
+export interface AlterEgoVerificationResponse {
+  id: number
+  alterEgo: AlterEgoResponse
+  requester: UserSummary
+  firstName: string
+  lastName: string
+  birthDate: string | null
+  birthPlace: string
+  codiceFiscale: string
+  status: AlterEgoVerificationStatus
+  reviewer?: UserSummary
+  reviewNote?: string
+  createdAt: string
+  reviewedAt?: string
 }
 
 export interface ContentResponse {
@@ -84,9 +102,7 @@ export interface MessageResponse {
   text: string
   readByRecipient: boolean
   sentAt: string
-  /** Populated when the message contains a shared content card */
   attachedContent?: MessageContentSummary
-  /** Populated when the message shares a user profile */
   attachedUser?: UserSummary
 }
 

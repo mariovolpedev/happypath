@@ -19,7 +19,7 @@ export default function Navbar() {
   const [unread, setUnread] = useState(0)
 
   const currentTheme = THEME_OPTIONS.find(t => t.mode === mode) ?? THEME_OPTIONS[2]
-  const nextTheme = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
+  const nextTheme    = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
 
   const handleLogout = () => { logout(); navigate('/') }
 
@@ -33,7 +33,6 @@ export default function Navbar() {
     }
   }
 
-  // Poll unread DM count every 30 s while logged in
   useEffect(() => {
     if (!isAuthenticated()) return
     const fetchUnread = () => getUnreadCount().then(setUnread).catch(() => {})
@@ -55,8 +54,7 @@ export default function Navbar() {
         {/* Search bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-1.5 flex-1 max-w-sm">
           <input
-            type="text"
-            placeholder="Cerca..."
+            type="text" placeholder="Cerca..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="input text-sm py-1.5 w-full"
@@ -71,8 +69,7 @@ export default function Navbar() {
           <button
             onClick={() => setMode(nextTheme.mode)}
             title={`Passa a: ${nextTheme.label}`}
-            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors
-                       hover:bg-gray-100 dark:hover:bg-gray-800 text-base"
+            className="w-9 h-9 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-base"
             aria-label="Cambia tema"
           >
             {currentTheme.icon}
@@ -80,10 +77,10 @@ export default function Navbar() {
 
           {isAuthenticated() ? (
             <>
-              <Link to="/home" className="btn-secondary text-sm">🏠 Home</Link>
-              <Link to="/create" className="btn-primary text-sm">+ Pubblica</Link>
+              <Link to="/home"   className="btn-secondary text-sm">🏠 Home</Link>
+              <Link to="/create" className="btn-primary  text-sm">+ Pubblica</Link>
 
-              {/* Messages with unread badge */}
+              {/* Messaggi con badge non letti */}
               <Link to="/messages" className="relative btn-secondary text-sm" title="Messaggi privati">
                 💬 Messaggi
                 {unread > 0 && (
@@ -92,6 +89,13 @@ export default function Navbar() {
                   </span>
                 )}
               </Link>
+
+              {/* Alter Ego – visibile solo agli utenti verificati */}
+              {user?.verified && (
+                <Link to="/alter-egos" className="btn-secondary text-sm" title="Gestisci i tuoi Alter Ego">
+                  🎭 Alter Ego
+                </Link>
+              )}
 
               {isModeratorOrAdmin() && (
                 <Link to="/moderation" className="btn-secondary text-sm">🛡️ Mod</Link>
@@ -108,12 +112,10 @@ export default function Navbar() {
                 {user?.displayName}
               </Link>
 
-              {/* Settings link */}
               <Link
                 to="/settings"
                 title="Impostazioni profilo"
-                className="w-8 h-8 flex items-center justify-center rounded-full transition-colors
-                           hover:bg-gray-100 dark:hover:bg-gray-800 text-base"
+                className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-base"
                 style={{ color: 'var(--text-faint)' }}
               >
                 ⚙️
@@ -129,8 +131,8 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login" className="btn-secondary text-sm">Accedi</Link>
-              <Link to="/register" className="btn-primary text-sm">Registrati</Link>
+              <Link to="/login"    className="btn-secondary text-sm">Accedi</Link>
+              <Link to="/register" className="btn-primary  text-sm">Registrati</Link>
             </>
           )}
         </div>

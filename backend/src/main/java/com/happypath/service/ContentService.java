@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ContentService {
 
-    private final ContentRepository contentRepository;
-    private final ThemeRepository themeRepository;
-    private final AlterEgoRepository alterEgoRepository;
-    private final ReactionRepository reactionRepository;
-    private final CommentRepository commentRepository;
-    private final UserRepository userRepository;
-    private final UserService userService;
+    private final ContentRepository      contentRepository;
+    private final ThemeRepository        themeRepository;
+    private final AlterEgoRepository     alterEgoRepository;
+    private final ReactionRepository     reactionRepository;
+    private final CommentRepository      commentRepository;
+    private final UserRepository         userRepository;
+    private final UserService            userService;
 
     public Content findById(Long id) {
         return contentRepository.findById(id)
@@ -140,18 +140,26 @@ public class ContentService {
                 .findFirst().map(r -> r.getType().name()).orElse(null);
         long commentsCount = commentRepository.countByContentAndStatus(c, ContentStatus.ACTIVE);
 
-        AlterEgoResponse aeResp = c.getAlterEgo() == null ? null :
-                new AlterEgoResponse(c.getAlterEgo().getId(), c.getAlterEgo().getName(),
-                        c.getAlterEgo().getDescription(), c.getAlterEgo().getAvatarUrl(),
-                        userService.toSummary(c.getAlterEgo().getOwner()));
+        // ── AlterEgo – include il flag verified ──────────────────────────
+        AlterEgoResponse aeResp = null;
+        if (c.getAlterEgo() != null) {
+            AlterEgo ae = c.getAlterEgo();
+            aeResp = new AlterEgoResponse(
+                    ae.getId(), ae.getName(), ae.getDescription(), ae.getAvatarUrl(),
+                    userService.toSummary(ae.getOwner()),
+                    ae.isVerified()   // ← propagato al frontend
+            );
+        }
+
         ThemeResponse themeResp = c.getTheme() == null ? null :
                 new ThemeResponse(c.getTheme().getId(), c.getTheme().getName(),
                         c.getTheme().getDescription(), c.getTheme().getIconEmoji());
 
         return new ContentResponse(
                 c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),
-                userService.toSummary(c.getAuthor()), aeResp, themeResp, c.getStatus(),
-                reactions.size(), commentsCount, byType, myReaction,
-                List.of(), c.getCreatedAt(), c.getUpdatedAt());
+                userService.toSummary(c.getAuthor()), aeResp, themeResp,
+                c.getStatus(), reactions.size(), commentsCount,
+                byType, myReaction, List.of(),
+                c.getCreatedAt(), c.getUpdatedAt());
     }
 }

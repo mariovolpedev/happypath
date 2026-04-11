@@ -45,8 +45,11 @@ public class AlterEgoService {
         alterEgoRepository.save(ae);
     }
 
-    private AlterEgoResponse toResponse(AlterEgo ae) {
-        return new AlterEgoResponse(ae.getId(), ae.getName(), ae.getDescription(),
-                ae.getAvatarUrl(), userService.toSummary(ae.getOwner()));
+    public AlterEgoResponse toResponse(AlterEgo ae) {
+        return new AlterEgoResponse(
+                ae.getId(), ae.getName(), ae.getDescription(),
+                ae.getAvatarUrl(), userService.toSummary(ae.getOwner()),
+                ae.isVerified()   // ← propaga il flag di verifica
+        );
     }
 }

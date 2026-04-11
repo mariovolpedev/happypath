@@ -33,4 +33,6 @@ public class AlterEgo {
 
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    private boolean verified = false;
 }

@@ -19,11 +19,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SearchService {
 
-    private final ContentRepository contentRepository;
-    private final UserRepository userRepository;
+    private final ContentRepository  contentRepository;
+    private final UserRepository     userRepository;
     private final AlterEgoRepository alterEgoRepository;
-    private final ContentService contentService;
-    private final UserService userService;
+    private final ContentService     contentService;
+    private final UserService        userService;
 
     public SearchResultResponse search(String q, String type, Long themeId, User currentUser) {
         if (q == null || q.isBlank()) {
@@ -33,8 +33,8 @@ public class SearchService {
         String query = q.trim();
         Pageable pageable = PageRequest.of(0, 20);
 
-        List<ContentResponse> contents = List.of();
-        List<UserSummary> users = List.of();
+        List<ContentResponse> contents  = List.of();
+        List<UserSummary>    users      = List.of();
         List<AlterEgoResponse> alterEgos = List.of();
 
         if (type == null || type.equalsIgnoreCase("CONTENT")) {
@@ -57,7 +57,9 @@ public class SearchService {
                     .stream()
                     .map(ae -> new AlterEgoResponse(
                             ae.getId(), ae.getName(), ae.getDescription(),
-                            ae.getAvatarUrl(), userService.toSummary(ae.getOwner())))
+                            ae.getAvatarUrl(), userService.toSummary(ae.getOwner()),
+                            ae.isVerified()   // ← include flag verified
+                    ))
                     .toList();
         }
 
