@@ -56,12 +56,6 @@ public class ContentService {
         }
 
         Content content = contentRepository.save(builder.build());
-
-        if (req.dedicatedToUserId() != null) {
-            // La dedica viene gestita in modo semplificato qui
-            // In produzione si userebbe un servizio dedicato
-        }
-
         return toResponse(content, author);
     }
 
@@ -90,7 +84,15 @@ public class ContentService {
         contentRepository.save(content);
     }
 
-    public Page<ContentResponse> getFeed(Pageable pageable) {
+    /**
+     * Feed pubblico. Se l'utente è autenticato, esclude i contenuti di utenti bloccati
+     * (in qualsiasi direzione).
+     */
+    public Page<ContentResponse> getFeed(Pageable pageable, User currentUser) {
+        if (currentUser != null) {
+            return contentRepository.findFeedExcludingBlocked(currentUser.getId(), pageable)
+                    .map(c -> toResponse(c, currentUser));
+        }
         return contentRepository.findByStatusOrderByCreatedAtDesc(ContentStatus.ACTIVE, pageable)
                 .map(c -> toResponse(c, null));
     }
@@ -100,7 +102,14 @@ public class ContentService {
                 .map(c -> toResponse(c, user));
     }
 
-    public Page<ContentResponse> getByTheme(Long themeId, Pageable pageable) {
+    /**
+     * Feed per tema. Se autenticato, esclude i blocchi bidirezionali.
+     */
+    public Page<ContentResponse> getByTheme(Long themeId, Pageable pageable, User currentUser) {
+        if (currentUser != null) {
+            return contentRepository.findByThemeExcludingBlocked(themeId, currentUser.getId(), pageable)
+                    .map(c -> toResponse(c, currentUser));
+        }
         return contentRepository.findByThemeIdAndStatusOrderByCreatedAtDesc(themeId, ContentStatus.ACTIVE, pageable)
                 .map(c -> toResponse(c, null));
     }

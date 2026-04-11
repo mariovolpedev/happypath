@@ -4,7 +4,12 @@ import type { UserProfile, UserSummary, Page, ContentResponse } from '../types'
 export const getProfile = (username: string) =>
   api.get<UserProfile>(`/users/${username}/profile`).then(r => r.data)
 
-export const updateProfile = (data: { displayName?: string; bio?: string; avatarUrl?: string; profileColor?: string }) =>
+export const updateProfile = (data: {
+  displayName?: string
+  bio?: string
+  avatarUrl?: string
+  profileColor?: string
+}) =>
   api.patch<UserProfile>('/users/me', data).then(r => r.data)
 
 export const follow = (id: number) => api.post(`/users/${id}/follow`)
@@ -36,3 +41,11 @@ export const getUserReactions = (username: string, page = 0) =>
 
 export const getUserCommentsActivity = (username: string, page = 0) =>
   api.get<Page<UserCommentActivityResponse>>(`/users/${username}/comments-activity`, { params: { page } }).then(r => r.data)
+
+/** Follower dell'utente corrente (chi mi segue) */
+export const getMyFollowers = () =>
+  api.get<UserSummary[]>('/users/me/followers').then(r => r.data)
+
+/** Utenti seguiti dall'utente corrente */
+export const getMyFollowing = () =>
+  api.get<UserSummary[]>('/users/me/following').then(r => r.data)

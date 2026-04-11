@@ -15,5 +15,6 @@ public record UserProfile(
         long followersCount,
         long followingCount,
         boolean isFollowedByMe,
+        boolean isBlockedByMe,
         LocalDateTime createdAt
 ) {}

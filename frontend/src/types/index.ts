@@ -20,6 +20,7 @@ export interface UserProfile extends UserSummary {
   followersCount: number
   followingCount: number
   isFollowedByMe: boolean
+  isBlockedByMe: boolean  // true if the current user has blocked this profile
   createdAt: string
 }
 

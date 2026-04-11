@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage'
 import ModerationPage from './pages/ModerationPage'
 import SearchPage from './pages/SearchPage'
 import MessagesPage from './pages/MessagesPage'
+import SettingsPage from './pages/SettingsPage'
 import { useAuthStore } from './store/authStore'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/content/:id" element={<ContentDetailPage />} />
         <Route path="/u/:username" element={<ProfilePage />} />
         <Route path="/messages" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+        <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
         <Route path="/moderation" element={<ModRoute><ModerationPage /></ModRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -3,6 +3,7 @@ package com.happypath.controller;
 import com.happypath.dto.request.ContentRequest;
 import com.happypath.dto.response.ContentResponse;
 import com.happypath.model.ReactionType;
+import com.happypath.model.User;
 import com.happypath.security.HappyPathUserDetails;
 import com.happypath.service.CommentService;
 import com.happypath.service.ContentService;
@@ -30,10 +31,12 @@ public class ContentController {
     @GetMapping
     public ResponseEntity<Page<ContentResponse>> getFeed(
             @RequestParam(required = false) Long themeId,
+            @AuthenticationPrincipal HappyPathUserDetails details,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        User currentUser = details != null ? details.getUser() : null;
         if (themeId != null)
-            return ResponseEntity.ok(contentService.getByTheme(themeId, pageable));
-        return ResponseEntity.ok(contentService.getFeed(pageable));
+            return ResponseEntity.ok(contentService.getByTheme(themeId, pageable, currentUser));
+        return ResponseEntity.ok(contentService.getFeed(pageable, currentUser));
     }
 
     @GetMapping("/home")

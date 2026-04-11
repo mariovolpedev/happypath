@@ -5,6 +5,7 @@ import com.happypath.dto.response.UserProfile;
 import com.happypath.dto.response.UserSummary;
 import com.happypath.model.User;
 import com.happypath.security.HappyPathUserDetails;
+import com.happypath.service.BlockService;
 import com.happypath.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final BlockService blockService;
 
     @GetMapping("/{username}/profile")
     public ResponseEntity<UserProfile> getProfile(
@@ -48,6 +50,43 @@ public class UserController {
                                          @AuthenticationPrincipal HappyPathUserDetails details) {
         userService.unfollow(details.getUser(), id);
         return ResponseEntity.ok().build();
+    }
+
+    /** Blocca un utente: rimuove i follow reciproci e impedisce futuri follow */
+    @PostMapping("/{id}/block")
+    public ResponseEntity<Void> block(@PathVariable Long id,
+                                      @AuthenticationPrincipal HappyPathUserDetails details) {
+        blockService.block(details.getUser(), id);
+        return ResponseEntity.ok().build();
+    }
+
+    /** Sblocca un utente precedentemente bloccato */
+    @DeleteMapping("/{id}/block")
+    public ResponseEntity<Void> unblock(@PathVariable Long id,
+                                        @AuthenticationPrincipal HappyPathUserDetails details) {
+        blockService.unblock(details.getUser(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Lista degli utenti bloccati dall'utente corrente */
+    @GetMapping("/me/blocked")
+    public ResponseEntity<List<UserSummary>> getBlockedUsers(
+            @AuthenticationPrincipal HappyPathUserDetails details) {
+        return ResponseEntity.ok(blockService.getBlockedUsers(details.getUser()));
+    }
+
+    /** Follower dell'utente corrente (chi mi segue) */
+    @GetMapping("/me/followers")
+    public ResponseEntity<List<UserSummary>> getFollowers(
+            @AuthenticationPrincipal HappyPathUserDetails details) {
+        return ResponseEntity.ok(userService.getFollowers(details.getUser()));
+    }
+
+    /** Utenti seguiti dall'utente corrente */
+    @GetMapping("/me/following")
+    public ResponseEntity<List<UserSummary>> getFollowing(
+            @AuthenticationPrincipal HappyPathUserDetails details) {
+        return ResponseEntity.ok(userService.getFollowing(details.getUser()));
     }
 
     @GetMapping("/search")
