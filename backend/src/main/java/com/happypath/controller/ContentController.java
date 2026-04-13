@@ -24,15 +24,16 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ContentController {
 
-    private final ContentService contentService;
+    private final ContentService  contentService;
     private final ReactionService reactionService;
-    private final CommentService commentService;
+    private final CommentService  commentService;
 
     @GetMapping
     public ResponseEntity<Page<ContentResponse>> getFeed(
             @RequestParam(required = false) Long themeId,
             @AuthenticationPrincipal HappyPathUserDetails details,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt",
+                             direction = Sort.Direction.DESC) Pageable pageable) {
         User currentUser = details != null ? details.getUser() : null;
         if (themeId != null)
             return ResponseEntity.ok(contentService.getByTheme(themeId, pageable, currentUser));
@@ -50,14 +51,16 @@ public class ContentController {
     public ResponseEntity<ContentResponse> getOne(
             @PathVariable Long id,
             @AuthenticationPrincipal HappyPathUserDetails details) {
-        return ResponseEntity.ok(contentService.getOne(id, details != null ? details.getUser() : null));
+        return ResponseEntity.ok(
+                contentService.getOne(id, details != null ? details.getUser() : null));
     }
 
     @PostMapping
     public ResponseEntity<ContentResponse> create(
             @Valid @RequestBody ContentRequest req,
             @AuthenticationPrincipal HappyPathUserDetails details) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(contentService.create(req, details.getUser()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(contentService.create(req, details.getUser()));
     }
 
     @PutMapping("/{id}")
@@ -80,8 +83,9 @@ public class ContentController {
     public ResponseEntity<Void> react(
             @PathVariable Long id,
             @RequestParam ReactionType type,
+            @RequestParam(required = false) Long alterEgoId,
             @AuthenticationPrincipal HappyPathUserDetails details) {
-        reactionService.react(id, type, details.getUser());
+        reactionService.react(id, type, details.getUser(), alterEgoId);
         return ResponseEntity.ok().build();
     }
 

@@ -7,8 +7,7 @@ import jakarta.validation.constraints.Size;
 public record MessageRequest(
         @NotNull Long recipientId,
         @NotBlank @Size(max = 2000) String text,
-        /** Optional: attach a content card by ID */
+        Long senderAlterEgoId,     // opzionale: se presente, il messaggio viene inviato come alter ego
         Long attachedContentId,
-        /** Optional: attach a user profile by ID */
         Long attachedUserId
 ) {}

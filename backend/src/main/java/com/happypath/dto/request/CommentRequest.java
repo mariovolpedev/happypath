@@ -5,5 +5,6 @@ import jakarta.validation.constraints.Size;
 
 public record CommentRequest(
         @NotBlank @Size(max = 1000) String text,
-        Long parentId
+        Long parentId,
+        Long alterEgoId   // opzionale: se presente, il commento viene pubblicato come alter ego
 ) {}

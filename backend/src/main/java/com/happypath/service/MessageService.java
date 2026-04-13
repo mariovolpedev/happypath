@@ -3,14 +3,9 @@ package com.happypath.service;
 import com.happypath.dto.request.MessageRequest;
 import com.happypath.dto.response.ConversationSummary;
 import com.happypath.dto.response.MessageResponse;
-import com.happypath.dto.response.MessageResponse.ContentSummary;
 import com.happypath.exception.HappyPathException;
-import com.happypath.model.Content;
-import com.happypath.model.DirectMessage;
-import com.happypath.model.User;
-import com.happypath.repository.ContentRepository;
-import com.happypath.repository.DirectMessageRepository;
-import com.happypath.repository.FollowRepository;
+import com.happypath.model.*;
+import com.happypath.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,56 +21,35 @@ import java.util.stream.Collectors;
 public class MessageService {
 
     private final DirectMessageRepository messageRepository;
-    private final UserService userService;
-    private final FollowRepository followRepository;
-    private final ContentRepository contentRepository;
-
-    // -----------------------------------------------------------------------
-    // Send
-    // -----------------------------------------------------------------------
+    private final UserService             userService;
+    private final AlterEgoService         alterEgoService;
+    private final ContentService          contentService;
+    private final BlockRepository         blockRepository;
 
     @Transactional
     public MessageResponse send(MessageRequest req, User sender) {
         User recipient = userService.findById(req.recipientId());
 
-        // Both parties must be verified
-        if (!sender.isVerified()) {
+        if (!sender.isVerified() || !recipient.isVerified())
             throw new HappyPathException(
-                    "Solo gli utenti verificati possono inviare messaggi privati",
+                    "Entrambi gli utenti devono essere verificati per scambiarsi messaggi",
                     HttpStatus.FORBIDDEN);
-        }
-        if (!recipient.isVerified()) {
+
+        if (blockRepository.existsByBlockerIdAndBlockedId(sender.getId(), recipient.getId()) ||
+            blockRepository.existsByBlockerIdAndBlockedId(recipient.getId(), sender.getId()))
             throw new HappyPathException(
-                    "Puoi inviare messaggi solo ad utenti verificati",
-                    HttpStatus.FORBIDDEN);
-        }
+                    "Non puoi inviare messaggi a questo utente", HttpStatus.FORBIDDEN);
 
-        // They must follow each other (mutual connection)
-        boolean senderFollowsRecipient = followRepository.existsByFollowerAndFollowed(sender, recipient);
-        boolean recipientFollowsSender = followRepository.existsByFollowerAndFollowed(recipient, sender);
-        if (!senderFollowsRecipient || !recipientFollowsSender) {
-            throw new HappyPathException(
-                    "Puoi inviare messaggi solo a utenti con cui sei collegato (follow reciproco)",
-                    HttpStatus.FORBIDDEN);
-        }
+        AlterEgo senderAe = alterEgoService.resolveForUser(req.senderAlterEgoId(), sender);
 
-        // Validate optional attachment IDs
-        if (req.attachedContentId() != null) {
-            contentRepository.findById(req.attachedContentId())
-                    .orElseThrow(() -> new HappyPathException("Contenuto allegato non trovato", HttpStatus.NOT_FOUND));
-        }
-        if (req.attachedUserId() != null) {
-            userService.findById(req.attachedUserId()); // throws if not found
-        }
-
-        DirectMessage msg = messageRepository.save(
-                DirectMessage.builder()
-                        .sender(sender)
-                        .recipient(recipient)
-                        .text(req.text())
-                        .attachedContentId(req.attachedContentId())
-                        .attachedUserId(req.attachedUserId())
-                        .build());
+        DirectMessage msg = messageRepository.save(DirectMessage.builder()
+                .sender(sender)
+                .senderAlterEgo(senderAe)
+                .recipient(recipient)
+                .text(req.text())
+                .attachedContentId(req.attachedContentId())
+                .attachedUserId(req.attachedUserId())
+                .build());
 
         return toResponse(msg);
     }
@@ -145,11 +119,16 @@ public class MessageService {
     // -----------------------------------------------------------------------
 
     private MessageResponse toResponse(DirectMessage m) {
-        ContentSummary contentSummary = null;
+        MessageResponse.ContentSummary attachedContent = null;
         if (m.getAttachedContentId() != null) {
-            contentSummary = contentRepository.findById(m.getAttachedContentId())
-                    .map(this::toContentSummary)
-                    .orElse(null);
+            try {
+                Content c = contentService.findById(m.getAttachedContentId());
+                attachedContent = new MessageResponse.ContentSummary(
+                        c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),
+                        userService.toSummary(c.getAuthor()),
+                        c.getTheme() != null ? c.getTheme().getName() : null,
+                        c.getTheme() != null ? c.getTheme().getIconEmoji() : null);
+            } catch (Exception ignored) {}
         }
 
         com.happypath.dto.response.UserSummary attachedUser = null;
@@ -162,24 +141,13 @@ public class MessageService {
         return new MessageResponse(
                 m.getId(),
                 userService.toSummary(m.getSender()),
+                m.getSenderAlterEgo() != null
+                        ? alterEgoService.toResponse(m.getSenderAlterEgo()) : null,
                 userService.toSummary(m.getRecipient()),
                 m.getText(),
                 m.isReadByRecipient(),
                 m.getSentAt(),
-                contentSummary,
+                attachedContent,
                 attachedUser);
-    }
-
-    private ContentSummary toContentSummary(Content c) {
-        return new ContentSummary(
-                c.getId(),
-                c.getTitle(),
-                c.getBody() != null && c.getBody().length() > 120
-                        ? c.getBody().substring(0, 120) + "…"
-                        : c.getBody(),
-                c.getMediaUrl(),
-                userService.toSummary(c.getAuthor()),
-                c.getTheme() != null ? c.getTheme().getName() : null,
-                c.getTheme() != null ? c.getTheme().getIconEmoji() : null);
     }
 }

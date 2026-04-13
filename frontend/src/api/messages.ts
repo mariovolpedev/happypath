@@ -12,6 +12,7 @@ export interface ConversationSummary {
 export const sendMessage = (
   recipientId: number,
   text: string,
+  senderAlterEgoId?: number,
   attachedContentId?: number,
   attachedUserId?: number
 ) =>
@@ -19,23 +20,26 @@ export const sendMessage = (
     .post<MessageResponse>('/messages', {
       recipientId,
       text,
+      senderAlterEgoId,
       attachedContentId,
       attachedUserId,
     })
-    .then((r) => r.data)
+    .then(r => r.data)
 
 export const getConversation = (otherId: number, page = 0) =>
   api
     .get<Page<MessageResponse>>(`/messages/conversation/${otherId}`, {
       params: { page, size: 50 },
     })
-    .then((r) => r.data)
+    .then(r => r.data)
 
 export const getConversations = () =>
-  api.get<ConversationSummary[]>('/messages/conversations').then((r) => r.data)
+  api.get<ConversationSummary[]>('/messages/conversations').then(r => r.data)
 
 export const markConversationAsRead = (otherId: number) =>
   api.post(`/messages/conversation/${otherId}/read`)
 
 export const getUnreadCount = () =>
-  api.get<{ count: number }>('/messages/unread-count').then((r) => r.data.count)
+  api
+    .get<{ count: number }>('/messages/unread-count')
+    .then(r => r.data.count)

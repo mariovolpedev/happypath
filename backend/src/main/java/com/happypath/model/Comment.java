@@ -19,13 +19,18 @@ public class Comment {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
+    /** Alter ego come cui è stato scritto il commento (null = come se stesso) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alter_ego_id")
+    private AlterEgo alterEgo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "content_id", nullable = false)
     private Content content;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
-    private Comment parent;  // Per i thread di risposta
+    private Comment parent;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String text;

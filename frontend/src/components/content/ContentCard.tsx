@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
-import type { ContentResponse } from '../../types'
+import type { ContentResponse, AlterEgoResponse } from '../../types'
 import Avatar from '../common/Avatar'
 import VerifiedBadge from '../common/VerifiedBadge'
-import AlterEgoVerifiedBadge from '../common/AlterEgoVerifiedBadge'
 import ReportModal from './ReportModal'
 import ShareContentButton from '../messages/ShareContentButton'
 import { react, removeReaction } from '../../api/content'
+import { getMyAlterEgos } from '../../api/alterEgos'
 import { useAuthStore } from '../../store/authStore'
 
 const REACTIONS = [
@@ -25,11 +25,14 @@ interface Props {
 }
 
 export default function ContentCard({ content: initial, onDelete }: Props) {
-  const [content, setContent]             = useState(initial)
+  const [content,      setContent]      = useState(initial)
   const [showReactions, setShowReactions] = useState(false)
-  const [showReport, setShowReport]       = useState(false)
-  const [showMenu, setShowMenu]           = useState(false)
-  const { user, isAuthenticated }         = useAuthStore()
+  const [showReport,   setShowReport]   = useState(false)
+  const [showMenu,     setShowMenu]     = useState(false)
+  const [alterEgos,    setAlterEgos]    = useState<AlterEgoResponse[]>([])
+  const [selectedAeId, setSelectedAeId] = useState<number | undefined>()
+  const [showAePicker, setShowAePicker] = useState(false)
+  const { user, isAuthenticated }       = useAuthStore()
 
   const isAuthor     = user?.id === content.author.id
   const isModOrAdmin = user?.role === 'MODERATOR' || user?.role === 'ADMIN'
@@ -40,20 +43,34 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     ? { ...content.author, displayName: content.alterEgo.name, avatarUrl: content.alterEgo.avatarUrl }
     : content.author
 
-  const handleReact = async (type: string) => {
+  const handleReactClick = async () => {
     if (!isAuthenticated()) return
+    if (user?.verified) {
+      const aes = await getMyAlterEgos().catch(() => [] as AlterEgoResponse[])
+      setAlterEgos(aes)
+      if (aes.length > 0) {
+        setShowAePicker(true)
+        return
+      }
+    }
+    setShowReactions(s => !s)
+  }
+
+  const doReact = async (type: string) => {
     if (content.myReaction === type) {
       await removeReaction(content.id)
       setContent(c => ({
-        ...c, myReaction: undefined,
+        ...c,
+        myReaction: undefined,
         reactionsCount: c.reactionsCount - 1,
         reactionsByType: { ...c.reactionsByType, [type]: (c.reactionsByType[type] ?? 1) - 1 },
       }))
     } else {
-      await react(content.id, type)
+      await react(content.id, type, selectedAeId)
       const prev = content.myReaction
       setContent(c => ({
-        ...c, myReaction: type,
+        ...c,
+        myReaction: type,
         reactionsCount: c.reactionsCount + (prev ? 0 : 1),
         reactionsByType: {
           ...c.reactionsByType,
@@ -63,30 +80,60 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
       }))
     }
     setShowReactions(false)
+    setShowAePicker(false)
   }
 
   return (
     <>
       <article className="card hover:shadow-md transition-shadow">
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <Link to={`/u/${content.author.username}`} className="flex items-center gap-2.5 group">
-            <Avatar user={displayAuthor as any} size="md" />
+          <div className="flex items-center gap-2.5 group">
+            {content.alterEgo ? (
+              <Link to={`/ae/${content.alterEgo.id}`}>
+                <Avatar user={displayAuthor as any} size="md" />
+              </Link>
+            ) : (
+              <Link to={`/u/${content.author.username}`}>
+                <Avatar user={displayAuthor as any} size="md" />
+              </Link>
+            )}
             <div>
-              <div className="flex items-center gap-1 flex-wrap font-semibold text-gray-800 group-hover:text-happy-600 leading-tight">
-                {displayAuthor.displayName}
+              <div className="flex items-center gap-1 flex-wrap font-semibold leading-tight"
+                style={{ color: 'var(--text-primary)' }}>
+                {content.alterEgo ? (
+                  <>
+                    <Link to={`/ae/${content.alterEgo.id}`}
+                      className="hover:text-happy-600 transition-colors">
+                      {content.alterEgo.name}
+                    </Link>
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: '#EEEDFE', color: '#534AB7' }}>
+                      🎭
+                    </span>
+                  </>
+                ) : (
+                  <Link to={`/u/${content.author.username}`}
+                    className="hover:text-happy-600 transition-colors">
+                    {content.author.displayName}
+                  </Link>
+                )}
                 {content.author.verified && <VerifiedBadge />}
-                {/* Badge verifica Alter Ego */}
-                {content.alterEgo?.verified && <AlterEgoVerifiedBadge />}
               </div>
               {content.alterEgo && (
-                <div className="text-xs text-gray-400">via {content.author.displayName}</div>
+                <div className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                  via{' '}
+                  <Link to={`/u/${content.author.username}`}
+                    className="hover:text-happy-600 transition-colors">
+                    {content.author.displayName}
+                  </Link>
+                </div>
               )}
-              <div className="text-xs text-gray-400">
+              <div className="text-xs" style={{ color: 'var(--text-faint)' }}>
                 {formatDistanceToNow(new Date(content.createdAt), { addSuffix: true, locale: it })}
               </div>
             </div>
-          </Link>
+          </div>
 
           <div className="flex items-center gap-2">
             {content.theme && (
@@ -94,34 +141,29 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                 {content.theme.iconEmoji} {content.theme.name}
               </span>
             )}
-
             {(canDelete || canReport) && (
               <div className="relative">
-                <button
-                  onClick={() => setShowMenu(s => !s)}
-                  className="text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100"
-                  aria-label="Opzioni"
-                >
+                <button onClick={() => setShowMenu(s => !s)}
+                  className="text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center
+                             justify-center rounded-full hover:bg-gray-100"
+                  aria-label="Opzioni">
                   ⋯
                 </button>
                 {showMenu && (
-                  <div
-                    className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg z-20 min-w-[160px] overflow-hidden"
-                    onMouseLeave={() => setShowMenu(false)}
-                  >
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100
+                                 rounded-xl shadow-lg z-20 min-w-[160px] overflow-hidden"
+                    onMouseLeave={() => setShowMenu(false)}>
                     {canReport && (
-                      <button
-                        onClick={() => { setShowReport(true); setShowMenu(false) }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
-                      >
+                      <button onClick={() => { setShowReport(true); setShowMenu(false) }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-600
+                                   hover:bg-gray-50 flex items-center gap-2">
                         🚩 Segnala
                       </button>
                     )}
                     {canDelete && (
-                      <button
-                        onClick={() => { onDelete!(content.id); setShowMenu(false) }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
-                      >
+                      <button onClick={() => { onDelete!(content.id); setShowMenu(false) }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-500
+                                   hover:bg-red-50 flex items-center gap-2">
                         🗑️ Elimina
                       </button>
                     )}
@@ -132,20 +174,23 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
           </div>
         </div>
 
-        {/* ── Dediche ── */}
+        {/* Dediche */}
         {content.dedications?.length > 0 && (
           <p className="text-xs text-happy-600 mb-2 italic">
             💌 Dedicato a {content.dedications.map(d => d.to.displayName).join(', ')}
           </p>
         )}
 
-        {/* ── Corpo ── */}
+        {/* Corpo */}
         <Link to={`/content/${content.id}`} className="block group">
-          <h2 className="font-display font-bold text-lg text-gray-900 group-hover:text-happy-700 leading-snug mb-1">
+          <h2 className="font-display font-bold text-lg group-hover:text-happy-700 leading-snug mb-1"
+            style={{ color: 'var(--text-primary)' }}>
             {content.title}
           </h2>
           {content.body && (
-            <p className="text-gray-600 text-sm line-clamp-3">{content.body}</p>
+            <p className="text-sm line-clamp-3" style={{ color: 'var(--text-muted)' }}>
+              {content.body}
+            </p>
           )}
           {content.mediaUrl && (
             <img src={content.mediaUrl} alt={content.title}
@@ -153,29 +198,51 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
           )}
         </Link>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 flex-wrap">
           <div className="relative">
-            <button
-              onClick={() => isAuthenticated() && setShowReactions(s => !s)}
+            <button onClick={handleReactClick}
               className={`flex items-center gap-1.5 text-sm rounded-full px-3 py-1.5 transition-colors ${
                 content.myReaction ? 'bg-pink-50 text-pink-600' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
+              }`}>
               {content.myReaction
                 ? (REACTIONS.find(r => r.type === content.myReaction)?.emoji ?? '❤️')
                 : '🤍'}{' '}
               {content.reactionsCount}
             </button>
 
+            {/* Picker identità per la reazione */}
+            {showAePicker && (
+              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
+                             border border-gray-100 p-3 z-10 min-w-[180px]">
+                <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>
+                  Reagisci come:
+                </p>
+                <div className="space-y-1 mb-2">
+                  <button
+                    onClick={() => { setSelectedAeId(undefined); setShowAePicker(false); setShowReactions(true) }}
+                    className="w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50">
+                    👤 {user?.displayName}
+                  </button>
+                  {alterEgos.map(ae => (
+                    <button key={ae.id}
+                      onClick={() => { setSelectedAeId(ae.id); setShowAePicker(false); setShowReactions(true) }}
+                      className="w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50">
+                      🎭 {ae.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {showReactions && (
-              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg border border-gray-100 flex gap-1 p-2 z-10">
+              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
+                             border border-gray-100 flex gap-1 p-2 z-10">
                 {REACTIONS.map(r => (
-                  <button key={r.type} onClick={() => handleReact(r.type)}
+                  <button key={r.type} onClick={() => doReact(r.type)}
                     className={`text-xl p-1.5 rounded-xl hover:bg-gray-100 transition-colors ${
                       content.myReaction === r.type ? 'bg-pink-50' : ''
-                    }`}
-                    title={r.type}>
+                    }`} title={r.type}>
                     {r.emoji}
                   </button>
                 ))}

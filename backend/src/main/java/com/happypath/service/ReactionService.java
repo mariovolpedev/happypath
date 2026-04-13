@@ -12,26 +12,37 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReactionService {
 
-    private final ReactionRepository reactionRepository;
-    private final ContentService contentService;
+    private final ReactionRepository  reactionRepository;
+    private final ContentService      contentService;
+    private final AlterEgoService     alterEgoService;
     private final NotificationService notificationService;
 
+    /**
+     * @param alterEgoId  null → reagisce come utente, altrimenti come alter ego
+     */
     @Transactional
-    public void react(Long contentId, ReactionType type, User user) {
+    public void react(Long contentId, ReactionType type, User user, Long alterEgoId) {
         Content content = contentService.findById(contentId);
         if (content.getStatus() != ContentStatus.ACTIVE)
             throw new HappyPathException("Contenuto non disponibile", HttpStatus.BAD_REQUEST);
 
-        boolean isNew = reactionRepository.findByUserAndContent(user, content).isEmpty();
-        reactionRepository.findByUserAndContent(user, content).ifPresent(reaction -> {
-                reactionRepository.delete(reaction);
-                reactionRepository.flush();
-        });
-        reactionRepository.save(Reaction.builder().user(user).content(content).type(type).build());
+        AlterEgo alterEgo = alterEgoService.resolveForUser(alterEgoId, user);
 
-        if (isNew) {
-            notificationService.notifyReaction(user, content);
-        }
+        boolean isNew = reactionRepository.findByUserAndContent(user, content).isEmpty();
+
+        reactionRepository.findByUserAndContent(user, content).ifPresent(existing -> {
+            reactionRepository.delete(existing);
+            reactionRepository.flush();
+        });
+
+        reactionRepository.save(Reaction.builder()
+                .user(user)
+                .alterEgo(alterEgo)
+                .content(content)
+                .type(type)
+                .build());
+
+        if (isNew) notificationService.notifyReaction(user, content);
     }
 
     @Transactional

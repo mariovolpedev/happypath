@@ -19,6 +19,11 @@ public class DirectMessage {
     @JoinColumn(name = "sender_id", nullable = false)
     private User sender;
 
+    /** Alter ego mittente (null = inviato come se stesso) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_alter_ego_id")
+    private AlterEgo senderAlterEgo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
@@ -31,7 +36,6 @@ public class DirectMessage {
 
     /**
      * Optional: ID of a Content the user is sharing inside the message.
-     * The full ContentResponse is resolved at query time by the service.
      */
     @Column(name = "attached_content_id")
     private Long attachedContentId;

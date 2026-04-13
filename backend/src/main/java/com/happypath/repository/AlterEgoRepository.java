@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface AlterEgoRepository extends JpaRepository<AlterEgo, Long> {
+
     List<AlterEgo> findByOwnerAndActiveTrue(User owner);
 
     @Query("SELECT a FROM AlterEgo a WHERE a.active = true " +

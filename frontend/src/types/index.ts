@@ -4,7 +4,6 @@ export type ReactionType = 'HEART' | 'LAUGH' | 'WOW' | 'CLAP' | 'SMILE'
 export type BanDuration = 'SHORT' | 'MEDIUM' | 'LONG' | 'PERMANENT'
 export type ReportTarget = 'USER' | 'CONTENT' | 'COMMENT'
 export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
-export type AlterEgoVerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface UserSummary {
   id: number
@@ -38,23 +37,7 @@ export interface AlterEgoResponse {
   description?: string
   avatarUrl?: string
   owner: UserSummary
-  verified: boolean   // ← aggiunto per feature verifica
-}
-
-export interface AlterEgoVerificationResponse {
-  id: number
-  alterEgo: AlterEgoResponse
-  requester: UserSummary
-  firstName: string
-  lastName: string
-  birthDate: string | null
-  birthPlace: string
-  codiceFiscale: string
-  status: AlterEgoVerificationStatus
-  reviewer?: UserSummary
-  reviewNote?: string
   createdAt: string
-  reviewedAt?: string
 }
 
 export interface ContentResponse {
@@ -79,12 +62,12 @@ export interface CommentResponse {
   id: number
   text: string
   author: UserSummary
+  alterEgo?: AlterEgoResponse
   parentId?: number
   status: ContentStatus
   createdAt: string
 }
 
-/** Lightweight content summary embedded inside a message */
 export interface MessageContentSummary {
   id: number
   title: string
@@ -98,6 +81,7 @@ export interface MessageContentSummary {
 export interface MessageResponse {
   id: number
   sender: UserSummary
+  senderAlterEgo?: AlterEgoResponse
   recipient: UserSummary
   text: string
   readByRecipient: boolean

@@ -23,7 +23,7 @@ public class AlterEgo {
 
     private String avatarUrl;
 
-    /** Solo utenti verificati possono creare/gestire Alter Ego */
+    /** Solo utenti verificati possono creare Alter Ego */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
@@ -33,6 +33,4 @@ public class AlterEgo {
 
     @CreationTimestamp
     private LocalDateTime createdAt;
-
-    private boolean verified = false;
 }

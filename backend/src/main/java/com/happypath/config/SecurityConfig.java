@@ -45,12 +45,12 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         var config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        for (String origin : allowedOrigins.split(",")) {
+        for (String origin : allowedOrigins.split(","))
             config.addAllowedOriginPattern(origin.trim());
-        }
         config.addAllowedOriginPattern("http://localhost:[*]");
         config.addAllowedOriginPattern("http://127.0.0.1:[*]");
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
+        config.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization", "Content-Type"));
         config.setMaxAge(3600L);
@@ -69,17 +69,27 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
+                        // Contenuti
                         .requestMatchers(HttpMethod.GET, "/contents/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/themes/**").permitAll()
+                        // Utenti
                         .requestMatchers(HttpMethod.GET, "/users/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/profile").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/contents").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/reactions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/comments-activity").permitAll()
+                        // Alter Ego – profilo pubblico e contenuti
+                        .requestMatchers(HttpMethod.GET, "/alter-egos/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/alter-egos/*/contents").permitAll()
+                        // Ricerca unificata
                         .requestMatchers(HttpMethod.GET, "/search").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        // Swagger / H2 / error
+                        .requestMatchers(
+                                "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
+                        ).permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // Ruoli
                         .requestMatchers("/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
@@ -99,7 +109,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
         return config.getAuthenticationManager();
     }
 

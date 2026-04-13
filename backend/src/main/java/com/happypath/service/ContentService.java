@@ -6,6 +6,7 @@ import com.happypath.exception.HappyPathException;
 import com.happypath.model.*;
 import com.happypath.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -20,17 +21,20 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ContentService {
 
-    private final ContentRepository      contentRepository;
-    private final ThemeRepository        themeRepository;
-    private final AlterEgoRepository     alterEgoRepository;
-    private final ReactionRepository     reactionRepository;
-    private final CommentRepository      commentRepository;
-    private final UserRepository         userRepository;
-    private final UserService            userService;
+    private final ContentRepository  contentRepository;
+    private final ThemeRepository    themeRepository;
+    private final AlterEgoRepository alterEgoRepository;
+    private final ReactionRepository reactionRepository;
+    private final CommentRepository  commentRepository;
+    private final UserRepository     userRepository;
+    private final UserService        userService;
+    @Lazy
+    private final AlterEgoService    alterEgoService;
 
     public Content findById(Long id) {
         return contentRepository.findById(id)
-                .orElseThrow(() -> new HappyPathException("Contenuto non trovato", HttpStatus.NOT_FOUND));
+                .orElseThrow(() ->
+                        new HappyPathException("Contenuto non trovato", HttpStatus.NOT_FOUND));
     }
 
     @Transactional
@@ -43,15 +47,20 @@ public class ContentService {
 
         if (req.themeId() != null)
             builder.theme(themeRepository.findById(req.themeId())
-                    .orElseThrow(() -> new HappyPathException("Tema non trovato", HttpStatus.NOT_FOUND)));
+                    .orElseThrow(() ->
+                            new HappyPathException("Tema non trovato", HttpStatus.NOT_FOUND)));
 
         if (req.alterEgoId() != null) {
             if (!author.isVerified())
-                throw new HappyPathException("Solo gli utenti verificati possono usare un Alter Ego", HttpStatus.FORBIDDEN);
+                throw new HappyPathException(
+                        "Solo gli utenti verificati possono usare un Alter Ego",
+                        HttpStatus.FORBIDDEN);
             AlterEgo ae = alterEgoRepository.findById(req.alterEgoId())
-                    .orElseThrow(() -> new HappyPathException("Alter Ego non trovato", HttpStatus.NOT_FOUND));
+                    .orElseThrow(() ->
+                            new HappyPathException("Alter Ego non trovato", HttpStatus.NOT_FOUND));
             if (!ae.getOwner().getId().equals(author.getId()))
-                throw new HappyPathException("Non sei il proprietario di questo Alter Ego", HttpStatus.FORBIDDEN);
+                throw new HappyPathException(
+                        "Non sei il proprietario di questo Alter Ego", HttpStatus.FORBIDDEN);
             builder.alterEgo(ae);
         }
 
@@ -71,8 +80,7 @@ public class ContentService {
         if (req.themeId() != null)
             content.setTheme(themeRepository.findById(req.themeId()).orElse(null));
 
-        content = contentRepository.save(content);
-        return toResponse(content, user);
+        return toResponse(contentRepository.save(content), user);
     }
 
     @Transactional
@@ -84,15 +92,10 @@ public class ContentService {
         contentRepository.save(content);
     }
 
-    /**
-     * Feed pubblico. Se l'utente è autenticato, esclude i contenuti di utenti bloccati
-     * (in qualsiasi direzione).
-     */
     public Page<ContentResponse> getFeed(Pageable pageable, User currentUser) {
-        if (currentUser != null) {
+        if (currentUser != null)
             return contentRepository.findFeedExcludingBlocked(currentUser.getId(), pageable)
                     .map(c -> toResponse(c, currentUser));
-        }
         return contentRepository.findByStatusOrderByCreatedAtDesc(ContentStatus.ACTIVE, pageable)
                 .map(c -> toResponse(c, null));
     }
@@ -102,21 +105,27 @@ public class ContentService {
                 .map(c -> toResponse(c, user));
     }
 
-    /**
-     * Feed per tema. Se autenticato, esclude i blocchi bidirezionali.
-     */
     public Page<ContentResponse> getByTheme(Long themeId, Pageable pageable, User currentUser) {
-        if (currentUser != null) {
+        if (currentUser != null)
             return contentRepository.findByThemeExcludingBlocked(themeId, currentUser.getId(), pageable)
                     .map(c -> toResponse(c, currentUser));
-        }
-        return contentRepository.findByThemeIdAndStatusOrderByCreatedAtDesc(themeId, ContentStatus.ACTIVE, pageable)
+        return contentRepository.findByThemeIdAndStatusOrderByCreatedAtDesc(
+                        themeId, ContentStatus.ACTIVE, pageable)
                 .map(c -> toResponse(c, null));
     }
 
     public Page<ContentResponse> getByUser(String username, Pageable pageable) {
         User author = userService.findByUsername(username);
-        return contentRepository.findByAuthorAndStatusOrderByCreatedAtDesc(author, ContentStatus.ACTIVE, pageable)
+        return contentRepository.findByAuthorAndStatusOrderByCreatedAtDesc(
+                        author, ContentStatus.ACTIVE, pageable)
+                .map(c -> toResponse(c, null));
+    }
+
+    /** Contenuti pubblicati come un determinato alter ego. */
+    public Page<ContentResponse> getByAlterEgo(Long alterEgoId, Pageable pageable) {
+        AlterEgo ae = alterEgoService.findById(alterEgoId);
+        return contentRepository.findByAlterEgoAndStatusOrderByCreatedAtDesc(
+                        ae, ContentStatus.ACTIVE, pageable)
                 .map(c -> toResponse(c, null));
     }
 
@@ -140,16 +149,9 @@ public class ContentService {
                 .findFirst().map(r -> r.getType().name()).orElse(null);
         long commentsCount = commentRepository.countByContentAndStatus(c, ContentStatus.ACTIVE);
 
-        // ── AlterEgo – include il flag verified ──────────────────────────
-        AlterEgoResponse aeResp = null;
-        if (c.getAlterEgo() != null) {
-            AlterEgo ae = c.getAlterEgo();
-            aeResp = new AlterEgoResponse(
-                    ae.getId(), ae.getName(), ae.getDescription(), ae.getAvatarUrl(),
-                    userService.toSummary(ae.getOwner()),
-                    ae.isVerified()   // ← propagato al frontend
-            );
-        }
+        AlterEgoResponse aeResp = c.getAlterEgo() != null
+                ? alterEgoService.toResponse(c.getAlterEgo())
+                : null;
 
         ThemeResponse themeResp = c.getTheme() == null ? null :
                 new ThemeResponse(c.getTheme().getId(), c.getTheme().getName(),

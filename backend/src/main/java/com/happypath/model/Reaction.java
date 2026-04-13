@@ -21,6 +21,11 @@ public class Reaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /** Alter ego come cui è stata data la reazione (null = come se stesso) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alter_ego_id")
+    private AlterEgo alterEgo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "content_id", nullable = false)
     private Content content;

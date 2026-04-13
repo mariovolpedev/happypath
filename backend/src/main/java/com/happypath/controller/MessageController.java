@@ -70,7 +70,7 @@ public class MessageController {
     }
 
     /**
-     * Total unread message count for the current user — used for the navbar badge.
+     * Total unread message count for the current user used for the navbar badge.
      */
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Long>> unreadCount(
