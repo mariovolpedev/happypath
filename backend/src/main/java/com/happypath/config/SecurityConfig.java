@@ -92,6 +92,8 @@ public class SecurityConfig {
                         // Ruoli
                         .requestMatchers("/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // Verifica identità (autenticato, non richiede ruoli speciali per submit/get)
+                        .requestMatchers("/verification-requests/me").authenticated()
                         .anyRequest().authenticated()
                 )
                 .headers(h -> h.frameOptions(f -> f.sameOrigin()))
