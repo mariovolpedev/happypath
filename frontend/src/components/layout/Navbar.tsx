@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { getUnreadCount } from '../../api/messages'
 import NotificationBell from '../common/NotificationBell'
@@ -16,12 +16,14 @@ export default function Navbar() {
   const { mode, setMode } = useThemeStore()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [unread, setUnread] = useState(0)
+  const [unread, setUnread]           = useState(0)
+  const [menuOpen, setMenuOpen]       = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const currentTheme = THEME_OPTIONS.find(t => t.mode === mode) ?? THEME_OPTIONS[2]
   const nextTheme    = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
 
-  const handleLogout = () => { logout(); navigate('/') }
+  const handleLogout = () => { logout(); navigate('/'); setMenuOpen(false) }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +34,16 @@ export default function Navbar() {
       navigate('/search')
     }
   }
+
+  /* Chiudi il menu cliccando fuori */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated()) return
@@ -46,13 +58,14 @@ export default function Navbar() {
       className="border-b sticky top-0 z-50 transition-colors duration-200"
       style={{ backgroundColor: 'var(--bg-nav)', borderColor: 'var(--border)' }}
     >
-      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-3">
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2 font-display text-2xl font-bold text-happy-600 shrink-0">
           ✨ HappyPath
         </Link>
 
-        {/* Search bar */}
-        <form onSubmit={handleSearch} className="flex items-center gap-1.5 flex-1 max-w-sm">
+        {/* Search bar — occupa tutto lo spazio disponibile */}
+        <form onSubmit={handleSearch} className="flex items-center gap-1.5 flex-1">
           <input
             type="text" placeholder="Cerca..."
             value={searchQuery}
@@ -64,8 +77,10 @@ export default function Navbar() {
           </button>
         </form>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Theme toggle */}
+        {/* Destra: azioni primarie fisse + menu utente */}
+        <div className="flex items-center gap-2 shrink-0">
+
+          {/* Cambio tema */}
           <button
             onClick={() => setMode(nextTheme.mode)}
             title={`Passa a: ${nextTheme.label}`}
@@ -77,57 +92,75 @@ export default function Navbar() {
 
           {isAuthenticated() ? (
             <>
-              <Link to="/home"   className="btn-secondary text-sm">🏠 Home</Link>
-              <Link to="/create" className="btn-primary  text-sm">+ Pubblica</Link>
+              {/* Pubblica — azione primaria, sempre visibile */}
+              <Link to="/create" className="btn-primary text-sm shrink-0">+ Pubblica</Link>
+
+              {/* Notifiche */}
+              <NotificationBell />
 
               {/* Messaggi con badge non letti */}
-              <Link to="/messages" className="relative btn-secondary text-sm" title="Messaggi privati">
-                💬 Messaggi
+              <Link
+                to="/messages"
+                className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-base"
+                title="Messaggi privati"
+              >
+                💬
                 {unread > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-happy-500 text-white text-[10px] font-bold rounded-full min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-0.5">
+                  <span className="absolute -top-1 -right-1 bg-happy-500 text-white text-[10px] font-bold rounded-full min-w-[1.1rem] h-[1.1rem] flex items-center justify-center px-0.5">
                     {unread > 99 ? '99+' : unread}
                   </span>
                 )}
               </Link>
 
-              {/* Alter Ego – visibile solo agli utenti verificati */}
-              {user?.verified && (
-                <Link to="/alter-egos" className="btn-secondary text-sm" title="Gestisci i tuoi Alter Ego">
-                  🎭 Alter Ego
-                </Link>
-              )}
+              {/* ── Menu avatar dropdown ──
+                  Contiene: profilo, alter ego, moderazione, impostazioni, logout.
+                  Raccogliere qui tutte le voci secondarie lascia la barra
+                  di ricerca ampia e la navbar non affollata.
+              */}
+              <div ref={menuRef} className="relative">
+                <button
+                  onClick={() => setMenuOpen(o => !o)}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-sm font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen}
+                >
+                  {user?.verified && <span title="Verificato" className="text-base">✅</span>}
+                  <span className="max-w-[120px] truncate">{user?.displayName}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                    {menuOpen ? '▲' : '▼'}
+                  </span>
+                </button>
 
-              {isModeratorOrAdmin() && (
-                <Link to="/moderation" className="btn-secondary text-sm">🛡️ Mod</Link>
-              )}
+                {menuOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-52 rounded-2xl shadow-xl border py-1 z-50"
+                    style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
+                  >
+                    <MenuLink to="/home"                 onClick={() => setMenuOpen(false)} icon="🏠" label="Home" />
+                    <MenuLink to={`/u/${user?.username}`} onClick={() => setMenuOpen(false)} icon="👤" label="Profilo" />
 
-              <NotificationBell />
+                    {user?.verified && (
+                      <MenuLink to="/alter-egos" onClick={() => setMenuOpen(false)} icon="🎭" label="Alter Ego" />
+                    )}
 
-              <Link
-                to={`/u/${user?.username}`}
-                className="flex items-center gap-1.5 text-sm font-medium hover:text-happy-600 transition-colors"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                {user?.verified && <span title="Verificato">✅</span>}
-                {user?.displayName}
-              </Link>
+                    {isModeratorOrAdmin() && (
+                      <MenuLink to="/moderation" onClick={() => setMenuOpen(false)} icon="🛡️" label="Moderazione" />
+                    )}
 
-              <Link
-                to="/settings"
-                title="Impostazioni profilo"
-                className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-base"
-                style={{ color: 'var(--text-faint)' }}
-              >
-                ⚙️
-              </Link>
+                    <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
+                    <MenuLink to="/settings" onClick={() => setMenuOpen(false)} icon="⚙️" label="Impostazioni" />
+                    <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
 
-              <button
-                onClick={handleLogout}
-                className="text-sm hover:text-red-500 transition-colors"
-                style={{ color: 'var(--text-faint)' }}
-              >
-                Esci
-              </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-red-50 dark:hover:bg-red-950 text-red-500"
+                    >
+                      <span className="text-base">🚪</span> Esci
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>
@@ -138,5 +171,21 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
+  )
+}
+
+function MenuLink({
+  to, icon, label, onClick,
+}: { to: string; icon: string; label: string; onClick: () => void }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+      style={{ color: 'var(--text-primary)' }}
+    >
+      <span className="text-base">{icon}</span>
+      {label}
+    </Link>
   )
 }
