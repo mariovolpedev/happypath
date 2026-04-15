@@ -1,14 +1,12 @@
 package com.happypath.util;
 
 import java.time.LocalDate;
-import java.time.format.TextStyle;
-import java.util.Locale;
 import java.util.Map;
 
 /**
  * Validatore del Codice Fiscale italiano.
  * Controlla:
- *  1. Formato (lunghezza 16, charset ammessi)
+ *  1. Lunghezza e charset (inclusa omocodia)
  *  2. Carattere di controllo (CIN)
  *  3. Coerenza con nome, cognome, data di nascita e genere forniti dall'utente
  *
@@ -21,7 +19,7 @@ public final class CodiceFiscaleValidator {
     private CodiceFiscaleValidator() {}
 
     // ── Tabelle per il calcolo del CIN ──────────────────────────────────────
-    private static final int[] ODD  = {1,0,5,7,9,13,15,17,19,21,2,4,18,20,11,3,6,8,12,14,16,10,22,25,24,23};
+    private static final int[] ODD = {1,0,5,7,9,13,15,17,19,21,2,4,18,20,11,3,6,8,12,14,16,10,22,25,24,23};
     private static final Map<Character, Integer> EVEN = buildEven();
 
     private static Map<Character, Integer> buildEven() {
@@ -31,18 +29,38 @@ public final class CodiceFiscaleValidator {
         return m;
     }
 
+    // Lettere omocodia che sostituiscono le cifre 0-9
+    private static final String OMOCODIA_LETTERS = "LMNPQRSTUV";
+
     // ── Mesi (codice fiscale) ────────────────────────────────────────────────
     private static final char[] MONTHS = {'A','B','C','D','E','H','L','M','P','R','S','T'};
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Valida formato + CIN */
-    public static boolean isValidFormat(String cf) {
-        if (cf == null) return false;
+    /**
+     * Esito granulare della validazione del formato.
+     */
+    public enum FormatResult {
+        OK,
+        INVALID_CHARSET,   // lunghezza ≠ 16 o caratteri non ammessi
+        INVALID_CIN        // formato ok ma carattere di controllo errato
+    }
+
+    /** Valida formato + CIN, restituisce l'esito dettagliato. */
+    public static FormatResult validateFormat(String cf) {
+        if (cf == null) return FormatResult.INVALID_CHARSET;
         String s = cf.toUpperCase().trim();
-        if (s.length() != 16) return false;
-        if (!s.matches("[A-Z0-9]{16}")) return false;
-        return checkCin(s);
+        if (s.length() != 16) return FormatResult.INVALID_CHARSET;
+        // Charset: lettere A-Z nelle posizioni alfabetiche,
+        // cifre 0-9 o lettere omocodia nelle 7 posizioni numeriche (6,7,9,10,12,13,14)
+        if (!s.matches("[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]"))
+            return FormatResult.INVALID_CHARSET;
+        return checkCin(s) ? FormatResult.OK : FormatResult.INVALID_CIN;
+    }
+
+    /** Shortcut booleano per compatibilità interna. */
+    public static boolean isValidFormat(String cf) {
+        return validateFormat(cf) == FormatResult.OK;
     }
 
     /**
@@ -68,13 +86,28 @@ public final class CodiceFiscaleValidator {
     // ── Calcolo CIN ─────────────────────────────────────────────────────────
 
     private static boolean checkCin(String cf) {
+        // Normalizza eventuale omocodia prima del calcolo
+        String s = deOmocodia(cf.substring(0, 15));
         int sum = 0;
         for (int i = 0; i < 15; i++) {
-            char c = cf.charAt(i);
+            char c = s.charAt(i);
             int v = Character.isDigit(c) ? (c - '0') : (c - 'A');
             sum += ((i % 2) == 0) ? ODD[v] : EVEN.get(c);
         }
         return (char) ('A' + (sum % 26)) == cf.charAt(15);
+    }
+
+    /** Converte le lettere omocodia nelle rispettive cifre. */
+    private static String deOmocodia(String s) {
+        StringBuilder sb = new StringBuilder(s);
+        // Posizioni numeriche nel CF (0-based): 6,7,9,10,12,13,14
+        int[] numericPos = {6, 7, 9, 10, 12, 13, 14};
+        for (int pos : numericPos) {
+            char c = sb.charAt(pos);
+            int idx = OMOCODIA_LETTERS.indexOf(c);
+            if (idx >= 0) sb.setCharAt(pos, (char) ('0' + idx));
+        }
+        return sb.toString();
     }
 
     // ── Codice cognome ───────────────────────────────────────────────────────
@@ -101,9 +134,9 @@ public final class CodiceFiscaleValidator {
     // ── Codice data + genere ─────────────────────────────────────────────────
 
     private static String birthCode(LocalDate date, String gender) {
-        int yy   = date.getYear() % 100;
-        char mm  = MONTHS[date.getMonthValue() - 1];
-        int day  = date.getDayOfMonth();
+        int yy  = date.getYear() % 100;
+        char mm = MONTHS[date.getMonthValue() - 1];
+        int day = date.getDayOfMonth();
         if ("F".equalsIgnoreCase(gender)) day += 40;
         return String.format("%02d%c%02d", yy, mm, day);
     }

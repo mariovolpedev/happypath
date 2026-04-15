@@ -37,10 +37,17 @@ public class VerificationRequestService {
                 "Hai già una richiesta di verifica in attesa di revisione.");
         }
 
-        // Validazione formato codice fiscale
-        if (!CodiceFiscaleValidator.isValidFormat(dto.fiscalCode())) {
+        // Validazione formato codice fiscale (con messaggi granulari)
+        CodiceFiscaleValidator.FormatResult formatResult =
+            CodiceFiscaleValidator.validateFormat(dto.fiscalCode());
+
+        if (formatResult == CodiceFiscaleValidator.FormatResult.INVALID_CHARSET) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Il codice fiscale non è formalmente valido (controlla lunghezza, charset e carattere di controllo).");
+                "Il codice fiscale non è formalmente valido: controlla lunghezza (deve essere 16 caratteri) e che contenga solo lettere e numeri ammessi.");
+        }
+        if (formatResult == CodiceFiscaleValidator.FormatResult.INVALID_CIN) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Il carattere di controllo del codice fiscale (l'ultimo carattere) non è corretto. Verifica di aver inserito il codice fiscale esattamente come riportato sul documento.");
         }
 
         // Controllo incrociato CF con dati anagrafici
