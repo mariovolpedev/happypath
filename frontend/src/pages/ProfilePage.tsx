@@ -117,7 +117,6 @@ function VerificationPanel() {
         </div>
       )}
 
-      {/* CTA: mostra bottone solo se non c'è una richiesta in pending */}
       {(status === 'NONE' || status === 'REJECTED') && !showForm && (
         <button
           onClick={() => setShowForm(true)}
@@ -138,7 +137,9 @@ function VerificationPanel() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Form di richiesta verifica con validazione CF lato client
+   Form di richiesta verifica
+   Legge il messaggio di errore dal body JSON restituito dal
+   GlobalExceptionHandler: { message, status, timestamp }
    ──────────────────────────────────────────────────────────── */
 function VerificationForm({
   onCancel,
@@ -184,11 +185,25 @@ function VerificationForm({
       })
       onSuccess(res)
     } catch (err: any) {
-      setApiError(
-        err?.response?.data?.message
-          ?? err?.response?.data?.error
-          ?? "Errore durante l'invio. Controlla i dati e riprova."
-      )
+      /*
+       * Il GlobalExceptionHandler restituisce sempre:
+       *   { message: string, status: number, timestamp: string }
+       *
+       * Casi specifici:
+       *   422 → CF non formalmente valido (lunghezza/charset/carattere controllo)
+       *   422 → CF non coerente con nome/cognome/data/comune
+       *   409 → richiesta già pendente
+       *
+       * Fallback a messaggio generico se la risposta non è JSON strutturato.
+       */
+      const data = err?.response?.data
+      const message =
+        (typeof data?.message === 'string' && data.message)
+          ? data.message
+          : typeof data === 'string'
+          ? data
+          : "Errore durante l'invio. Controlla i dati e riprova."
+      setApiError(message)
     } finally {
       setLoading(false)
     }
@@ -247,7 +262,11 @@ function VerificationForm({
         🔒 I tuoi dati vengono usati solo per la verifica e non sono pubblici.
       </p>
 
-      {apiError && <p className="text-sm text-red-500">{apiError}</p>}
+      {apiError && (
+        <div className="rounded-xl p-3 text-sm" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+          ⚠️ {apiError}
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Annulla</button>
@@ -338,12 +357,6 @@ export default function ProfilePage() {
 
   if (loading) return <Spinner />
 
-  /*
-   * FIX: rimosso il blocco che impediva agli utenti non verificati
-   * di vedere il proprio profilo. Ora si mostra "Utente non trovato"
-   * solo se il profilo non esiste sul server, non in base allo stato
-   * di verifica dell'utente loggato.
-   */
   if (!profile) return <p className="text-center" style={{ color: 'var(--text-muted)' }}>Utente non trovato</p>
 
   const isMe       = me?.username === username
@@ -375,7 +388,6 @@ export default function ProfilePage() {
           }} />
           <div className="px-5 pb-5">
             <div className="flex items-end justify-between -mt-10 mb-3">
-              {/* Avatar */}
               <div
                 className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center
                            text-2xl font-bold flex-shrink-0"
@@ -388,7 +400,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* Action buttons */}
               <div className="flex flex-col gap-2 items-end">
                 {isMe && (
                   <button onClick={() => setShowEdit(true)} className="btn-secondary text-sm">
@@ -489,12 +500,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/*
-          ── Pannello verifica identità ──
-          Visibile solo al proprietario del profilo se non ancora verificato.
-          L'utente non verificato può ora sempre vedere il proprio profilo
-          e inviare la richiesta di verifica da qui.
-        */}
+        {/* Pannello verifica identità — solo al proprietario non verificato */}
         {isMe && !profile.verified && <VerificationPanel />}
 
         {/* ── Tab bar ── */}

@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -21,6 +22,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleHappyPathException(HappyPathException ex) {
         return ResponseEntity.status(ex.getStatus())
                 .body(new ErrorResponse(ex.getMessage(), ex.getStatus().value(), LocalDateTime.now()));
+    }
+
+    /**
+     * Gestisce le ResponseStatusException lanciate esplicitamente dal service
+     * (es. 422 per CF non valido, 409 per richiesta già pendente).
+     * Senza questo handler vengono catturate da handleGenericException
+     * e restituite come 500 con messaggio generico.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+        // getReason() è il messaggio passato al costruttore di ResponseStatusException
+        String message = ex.getReason() != null ? ex.getReason() : ex.getMessage();
+        return ResponseEntity.status(status)
+                .body(new ErrorResponse(message, status.value(), LocalDateTime.now()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
