@@ -24,12 +24,20 @@ function notificationLink(n: NotificationResponse): string {
   return '/'
 }
 
-export default function NotificationBell() {
+interface Props {
+  /** Numero di richieste di verifica pendenti (solo per mod/admin). */
+  pendingVerifications?: number
+}
+
+export default function NotificationBell({ pendingVerifications = 0 }: Props) {
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(0)
   const [notifications, setNotifications] = useState<NotificationResponse[]>([])
   const [loading, setLoading] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Totale badge = notifiche utente non lette + richieste verifica pendenti
+  const totalBadge = unread + pendingVerifications
 
   useEffect(() => {
     fetchCount()
@@ -86,9 +94,9 @@ export default function NotificationBell() {
         aria-label="Notifiche"
       >
         🔔
-        {unread > 0 && (
+        {totalBadge > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none">
-            {unread > 99 ? '99+' : unread}
+            {totalBadge > 99 ? '99+' : totalBadge}
           </span>
         )}
       </button>
@@ -104,12 +112,47 @@ export default function NotificationBell() {
             )}
           </div>
 
+          {/* ── Sezione richieste di verifica (solo mod/admin) ── */}
+          {pendingVerifications > 0 && (
+            <div className="border-b border-gray-100">
+              <div className="px-4 py-1.5 bg-blue-50">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500">
+                  Moderazione
+                </span>
+              </div>
+              <Link
+                to="/moderation"
+                onClick={() => setOpen(false)}
+                className="flex items-start gap-3 px-4 py-3 hover:bg-blue-50 transition-colors"
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm">
+                  🛡️
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-700 leading-snug font-medium">
+                    {pendingVerifications === 1
+                      ? '1 richiesta di verifica in attesa'
+                      : `${pendingVerifications} richieste di verifica in attesa`}
+                  </p>
+                  <p className="text-xs text-blue-500 mt-0.5">Vai alla sezione Moderazione →</p>
+                </div>
+                <span className="flex-shrink-0 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1 mt-0.5">
+                  {pendingVerifications > 99 ? '99+' : pendingVerifications}
+                </span>
+              </Link>
+            </div>
+          )}
+
+          {/* ── Notifiche utente ── */}
           <div className="max-h-96 overflow-y-auto">
             {loading && (
               <p className="text-center text-gray-400 py-6 text-sm">Caricamento…</p>
             )}
-            {!loading && notifications.length === 0 && (
+            {!loading && notifications.length === 0 && pendingVerifications === 0 && (
               <p className="text-center text-gray-400 py-8 text-sm">Nessuna notifica ancora 🌱</p>
+            )}
+            {!loading && notifications.length === 0 && pendingVerifications > 0 && (
+              <p className="text-center text-gray-400 py-6 text-sm">Nessuna notifica utente 🌱</p>
             )}
             {!loading && notifications.map(n => (
               <Link

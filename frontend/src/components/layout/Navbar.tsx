@@ -25,7 +25,10 @@ export default function Navbar() {
   const nextTheme    = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
 
   // Badge richieste di verifica pendenti (solo per mod/admin)
-  const pendingVerif = isModeratorOrAdmin() ? usePendingVerifications() : 0
+  // Il hook viene chiamato incondizionatamente per rispettare le regole degli hook React;
+  // il valore viene usato solo se l'utente è moderatore/admin.
+  const pendingVerifCount = usePendingVerifications()
+  const pendingVerif = isModeratorOrAdmin() ? pendingVerifCount : 0
 
   const handleLogout = () => { logout(); navigate('/'); setMenuOpen(false) }
 
@@ -99,8 +102,8 @@ export default function Navbar() {
               {/* Pubblica */}
               <Link to="/create" className="btn-primary text-sm shrink-0">+ Pubblica</Link>
 
-              {/* Notifiche */}
-              <NotificationBell />
+              {/* Notifiche — passa le verifiche pendenti se mod/admin */}
+              <NotificationBell pendingVerifications={pendingVerif} />
 
               {/* Messaggi */}
               <Link
