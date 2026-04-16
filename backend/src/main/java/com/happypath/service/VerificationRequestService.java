@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -49,6 +50,9 @@ public class VerificationRequestService {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Il carattere di controllo del codice fiscale (l'ultimo carattere) non è corretto. Verifica di aver inserito il codice fiscale esattamente come riportato sul documento.");
         }
+
+        // Controllo coerenza dati anagrafici con quelli forniti in fase di registrazione
+        assertConsistencyWithRegistration(user, dto);
 
         // Controllo incrociato CF con dati anagrafici
         if (!CodiceFiscaleValidator.isCoherent(
@@ -118,6 +122,45 @@ public class VerificationRequestService {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Verifica che i dati anagrafici forniti per la verifica siano coerenti
+     * con quelli indicati dall'utente in fase di registrazione.
+     *
+     * Controlla:
+     *  - birthDate: deve coincidere esattamente
+     *  - nome completo (firstName + lastName): deve corrispondere al displayName
+     *    registrato, confrontando in modo normalizzato (lowercase, senza accenti,
+     *    spazi multipli collassati)
+     */
+    private void assertConsistencyWithRegistration(User user, VerificationRequestDto dto) {
+        if (user.getBirthDate() == null || !user.getBirthDate().equals(dto.birthDate())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "La data di nascita fornita per la verifica non coincide con quella indicata in fase di registrazione.");
+        }
+
+        String registeredDisplayName = normalizeName(user.getDisplayName());
+        String verificationFullName  = normalizeName(dto.firstName() + " " + dto.lastName());
+
+        if (!registeredDisplayName.equals(verificationFullName)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "I dati anagrafici forniti per la verifica non sono coerenti con il nome visualizzato indicato in fase di registrazione.");
+        }
+    }
+
+    /**
+     * Normalizza una stringa per il confronto dei nomi:
+     * trim, rimozione diacritici (NFD), lowercase, collasso spazi multipli.
+     */
+    private String normalizeName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase();
+        return normalized.replaceAll("\\s+", " ");
+    }
 
     private VerificationRequest findOrThrow(Long id) {
         return verificationRepo.findById(id)
