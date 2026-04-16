@@ -40,9 +40,13 @@ export default function MessageBubble({ message, isOwn }: Props) {
           <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
             isOwn
               ? 'bg-happy-500 text-white rounded-tr-sm'
-              : 'border text-gray-800 rounded-tl-sm'
+              : 'rounded-tl-sm border'
           }`}
-            style={!isOwn ? { backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' } : undefined}>
+            style={!isOwn ? {
+              backgroundColor: 'var(--bg-card)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)'
+            } : undefined}>
             {message.text}
           </div>
         )}
@@ -99,7 +103,7 @@ export default function MessageBubble({ message, isOwn }: Props) {
                 @{message.attachedUser.username}
               </p>
             </div>
-            <span className="ml-auto text-gray-300 text-sm">→</span>
+            <span className="ml-auto text-sm" style={{ color: 'var(--text-faint)' }}>→</span>
           </Link>
         )}
 

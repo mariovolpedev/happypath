@@ -4,6 +4,7 @@ import { getComments, addComment, deleteComment } from '../../api/content'
 import { getMyAlterEgos } from '../../api/alterEgos'
 import type { CommentResponse, AlterEgoResponse } from '../../types'
 import Avatar from '../common/Avatar'
+import UserHoverCard from '../common/UserHoverCard'
 import { useAuthStore } from '../../store/authStore'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -92,8 +93,10 @@ export default function CommentSection({ contentId }: { contentId: number }) {
 
           return (
             <div key={c.id} className="flex gap-3">
-              <Avatar user={displayAuthor as any} size="sm" />
-              <div className="flex-1 rounded-xl p-3" style={{ backgroundColor: 'var(--bg-base)' }}>
+              <Link to={`/u/${c.author.username}`} className="shrink-0 hover:opacity-80 transition-opacity">
+                <Avatar user={displayAuthor as any} size="sm" />
+              </Link>
+              <div className="flex-1 rounded-xl p-3" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {c.alterEgo ? (
@@ -109,16 +112,27 @@ export default function CommentSection({ contentId }: { contentId: number }) {
                         </span>
                         <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
                           via{' '}
-                          <Link to={`/u/${c.author.username}`}
-                            className="hover:text-happy-600 transition-colors">
-                            {c.author.displayName}
-                          </Link>
+                          <UserHoverCard username={c.author.username} displayName={c.author.displayName}>
+                            <Link
+                              to={`/u/${c.author.username}`}
+                              className="hover:text-happy-600 transition-colors"
+                              style={{ color: 'var(--text-faint)' }}
+                            >
+                              {c.author.displayName}
+                            </Link>
+                          </UserHoverCard>
                         </span>
                       </>
                     ) : (
-                      <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                        {c.author.displayName}
-                      </span>
+                      <UserHoverCard username={c.author.username} displayName={c.author.displayName}>
+                        <Link
+                          to={`/u/${c.author.username}`}
+                          className="font-semibold text-sm hover:text-happy-600 transition-colors"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {c.author.displayName}
+                        </Link>
+                      </UserHoverCard>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
