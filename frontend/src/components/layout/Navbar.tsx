@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { getUnreadCount } from '../../api/messages'
 import NotificationBell from '../common/NotificationBell'
 import { useThemeStore, ThemeMode } from '../../store/themeStore'
+import { usePendingVerifications } from '../../hooks/usePendingVerifications'
 
 const THEME_OPTIONS: { mode: ThemeMode; label: string; icon: string }[] = [
   { mode: 'light',  label: 'Chiaro',  icon: '☀️' },
@@ -22,6 +23,9 @@ export default function Navbar() {
 
   const currentTheme = THEME_OPTIONS.find(t => t.mode === mode) ?? THEME_OPTIONS[2]
   const nextTheme    = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
+
+  // Badge richieste di verifica pendenti (solo per mod/admin)
+  const pendingVerif = isModeratorOrAdmin() ? usePendingVerifications() : 0
 
   const handleLogout = () => { logout(); navigate('/'); setMenuOpen(false) }
 
@@ -64,7 +68,7 @@ export default function Navbar() {
           ✨ HappyPath
         </Link>
 
-        {/* Search bar — occupa tutto lo spazio disponibile */}
+        {/* Search bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-1.5 flex-1">
           <input
             type="text" placeholder="Cerca..."
@@ -77,7 +81,7 @@ export default function Navbar() {
           </button>
         </form>
 
-        {/* Destra: azioni primarie fisse + menu utente */}
+        {/* Destra */}
         <div className="flex items-center gap-2 shrink-0">
 
           {/* Cambio tema */}
@@ -92,13 +96,13 @@ export default function Navbar() {
 
           {isAuthenticated() ? (
             <>
-              {/* Pubblica — azione primaria, sempre visibile */}
+              {/* Pubblica */}
               <Link to="/create" className="btn-primary text-sm shrink-0">+ Pubblica</Link>
 
               {/* Notifiche */}
               <NotificationBell />
 
-              {/* Messaggi con badge non letti */}
+              {/* Messaggi */}
               <Link
                 to="/messages"
                 className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-base"
@@ -112,11 +116,7 @@ export default function Navbar() {
                 )}
               </Link>
 
-              {/* ── Menu avatar dropdown ──
-                  Contiene: profilo, alter ego, moderazione, impostazioni, logout.
-                  Raccogliere qui tutte le voci secondarie lascia la barra
-                  di ricerca ampia e la navbar non affollata.
-              */}
+              {/* Menu avatar dropdown */}
               <div ref={menuRef} className="relative">
                 <button
                   onClick={() => setMenuOpen(o => !o)}
@@ -137,15 +137,21 @@ export default function Navbar() {
                     className="absolute right-0 mt-2 w-52 rounded-2xl shadow-xl border py-1 z-50"
                     style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
                   >
-                    <MenuLink to="/home"                 onClick={() => setMenuOpen(false)} icon="🏠" label="Home" />
-                    <MenuLink to={`/u/${user?.username}`} onClick={() => setMenuOpen(false)} icon="👤" label="Profilo" />
+                    <MenuLink to="/home"                  onClick={() => setMenuOpen(false)} icon="🏠" label="Home" />
+                    <MenuLink to={`/u/${user?.username}`}  onClick={() => setMenuOpen(false)} icon="👤" label="Profilo" />
 
                     {user?.verified && (
                       <MenuLink to="/alter-egos" onClick={() => setMenuOpen(false)} icon="🎭" label="Alter Ego" />
                     )}
 
                     {isModeratorOrAdmin() && (
-                      <MenuLink to="/moderation" onClick={() => setMenuOpen(false)} icon="🛡️" label="Moderazione" />
+                      <MenuLinkWithBadge
+                        to="/moderation"
+                        onClick={() => setMenuOpen(false)}
+                        icon="🛡️"
+                        label="Moderazione"
+                        badge={pendingVerif}
+                      />
                     )}
 
                     <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
@@ -186,6 +192,27 @@ function MenuLink({
     >
       <span className="text-base">{icon}</span>
       {label}
+    </Link>
+  )
+}
+
+function MenuLinkWithBadge({
+  to, icon, label, onClick, badge,
+}: { to: string; icon: string; label: string; onClick: () => void; badge: number }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+      style={{ color: 'var(--text-primary)' }}
+    >
+      <span className="text-base">{icon}</span>
+      <span className="flex-1">{label}</span>
+      {badge > 0 && (
+        <span className="bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   )
 }
