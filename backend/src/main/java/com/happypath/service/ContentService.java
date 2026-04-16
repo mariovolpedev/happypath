@@ -83,6 +83,38 @@ public class ContentService {
         return toResponse(contentRepository.save(content), user);
     }
 
+    /**
+     * Cambia il profilo con cui un contenuto è pubblicato.
+     * Solo l'autore originale può farlo.
+     * alterEgoId = null  → torna al profilo reale
+     * alterEgoId = <id>  → pubblica come alter ego (richiede utente verificato)
+     */
+    @Transactional
+    public ContentResponse changePublisher(Long contentId, User requester, Long alterEgoId) {
+        Content content = findById(contentId);
+
+        if (!content.getAuthor().getId().equals(requester.getId()))
+            throw new HappyPathException("Non autorizzato", HttpStatus.FORBIDDEN);
+
+        if (alterEgoId == null) {
+            content.setAlterEgo(null);
+        } else {
+            if (!requester.isVerified())
+                throw new HappyPathException(
+                        "Solo gli utenti verificati possono usare un Alter Ego",
+                        HttpStatus.FORBIDDEN);
+            AlterEgo ae = alterEgoRepository.findById(alterEgoId)
+                    .orElseThrow(() ->
+                            new HappyPathException("Alter Ego non trovato", HttpStatus.NOT_FOUND));
+            if (!ae.getOwner().getId().equals(requester.getId()))
+                throw new HappyPathException(
+                        "Non sei il proprietario di questo Alter Ego", HttpStatus.FORBIDDEN);
+            content.setAlterEgo(ae);
+        }
+
+        return toResponse(contentRepository.save(content), requester);
+    }
+
     @Transactional
     public void delete(Long id, User user) {
         Content content = findById(id);
@@ -121,7 +153,6 @@ public class ContentService {
                 .map(c -> toResponse(c, null));
     }
 
-    /** Contenuti pubblicati come un determinato alter ego. */
     public Page<ContentResponse> getByAlterEgo(Long alterEgoId, Pageable pageable) {
         AlterEgo ae = alterEgoService.findById(alterEgoId);
         return contentRepository.findByAlterEgoAndStatusOrderByCreatedAtDesc(

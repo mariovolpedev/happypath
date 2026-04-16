@@ -1,6 +1,7 @@
 package com.happypath.controller;
 
 import com.happypath.dto.request.ContentRequest;
+import com.happypath.dto.request.PublishAsRequest;
 import com.happypath.dto.response.ContentResponse;
 import com.happypath.model.ReactionType;
 import com.happypath.model.User;
@@ -69,6 +70,21 @@ public class ContentController {
             @Valid @RequestBody ContentRequest req,
             @AuthenticationPrincipal HappyPathUserDetails details) {
         return ResponseEntity.ok(contentService.update(id, req, details.getUser()));
+    }
+
+    /**
+     * PATCH /contents/{id}/publisher
+     * Cambia il profilo con cui il contenuto è pubblicato.
+     * { "alterEgoId": null }   → profilo reale
+     * { "alterEgoId": 42 }    → alter ego con id 42
+     */
+    @PatchMapping("/{id}/publisher")
+    public ResponseEntity<ContentResponse> changePublisher(
+            @PathVariable Long id,
+            @RequestBody PublishAsRequest req,
+            @AuthenticationPrincipal HappyPathUserDetails details) {
+        return ResponseEntity.ok(
+                contentService.changePublisher(id, details.getUser(), req.alterEgoId()));
     }
 
     @DeleteMapping("/{id}")
