@@ -32,6 +32,22 @@ public class User {
     @Column(length = 100)
     private String displayName;
 
+    /** Dati anagrafici raccolti in fase di registrazione — usati per il confronto 1:1 in fase di verifica identità */
+    @Column(length = 80)
+    private String firstName;
+
+    @Column(length = 80)
+    private String lastName;
+
+    private LocalDate birthDate;
+
+    @Column(length = 100)
+    private String birthPlace;
+
+    /** M / F */
+    @Column(length = 1)
+    private String gender;
+
     @Column(length = 300)
     private String bio;
 
@@ -55,8 +71,6 @@ public class User {
 
     @Builder.Default
     private boolean active = true;
-
-    private LocalDate birthDate;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

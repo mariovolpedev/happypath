@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -49,6 +50,9 @@ public class VerificationRequestService {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Il carattere di controllo del codice fiscale (l'ultimo carattere) non è corretto. Verifica di aver inserito il codice fiscale esattamente come riportato sul documento.");
         }
+
+        // Confronto 1:1 tra i dati anagrafici della verifica e quelli salvati in registrazione
+        assertConsistencyWithRegistration(user, dto);
 
         // Controllo incrociato CF con dati anagrafici
         if (!CodiceFiscaleValidator.isCoherent(
@@ -118,6 +122,57 @@ public class VerificationRequestService {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Confronto 1:1 tra i dati anagrafici inviati per la verifica
+     * e quelli salvati sull'utente in fase di registrazione.
+     *
+     * Campi confrontati:
+     *  - firstName  (normalizzato: trim, lowercase, senza diacritici)
+     *  - lastName   (normalizzato)
+     *  - birthDate  (uguaglianza esatta)
+     *  - birthPlace (normalizzato)
+     *  - gender     (case-insensitive)
+     */
+    private void assertConsistencyWithRegistration(User user, VerificationRequestDto dto) {
+
+        if (user.getBirthDate() == null || !user.getBirthDate().equals(dto.birthDate())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "La data di nascita fornita non coincide con quella indicata in fase di registrazione.");
+        }
+
+        if (!normalizeName(user.getFirstName()).equals(normalizeName(dto.firstName()))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il nome fornito non coincide con quello indicato in fase di registrazione.");
+        }
+
+        if (!normalizeName(user.getLastName()).equals(normalizeName(dto.lastName()))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il cognome fornito non coincide con quello indicato in fase di registrazione.");
+        }
+
+        if (!normalizeName(user.getBirthPlace()).equals(normalizeName(dto.birthPlace()))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il comune di nascita fornito non coincide con quello indicato in fase di registrazione.");
+        }
+
+        if (user.getGender() == null || !user.getGender().equalsIgnoreCase(dto.gender())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il genere fornito non coincide con quello indicato in fase di registrazione.");
+        }
+    }
+
+    /**
+     * Normalizza una stringa per il confronto dei nomi:
+     * trim, rimozione diacritici (NFD), lowercase, collasso spazi multipli.
+     */
+    private String normalizeName(String value) {
+        if (value == null) return "";
+        return Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase()
+                .replaceAll("\\s+", " ");
+    }
 
     private VerificationRequest findOrThrow(Long id) {
         return verificationRepo.findById(id)
