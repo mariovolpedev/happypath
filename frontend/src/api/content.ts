@@ -32,6 +32,16 @@ export const updateContent = (
 export const deleteContent = (id: number) =>
   api.delete(`/contents/${id}`)
 
+/**
+ * Cambia il profilo con cui è pubblicato un contenuto.
+ * @param id        id del contenuto
+ * @param alterEgoId  id alter ego oppure null per tornare al profilo reale
+ */
+export const changePublisher = (id: number, alterEgoId: number | null) =>
+  api
+    .patch<ContentResponse>(`/contents/${id}/publisher`, { alterEgoId })
+    .then(r => r.data)
+
 export const react = (contentId: number, type: string, alterEgoId?: number) =>
   api.post(`/contents/${contentId}/reactions`, null, {
     params: { type, ...(alterEgoId != null ? { alterEgoId } : {}) },
