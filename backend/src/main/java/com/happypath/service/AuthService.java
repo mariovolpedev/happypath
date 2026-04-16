@@ -44,8 +44,12 @@ public class AuthService {
                 .username(req.username())
                 .email(req.email())
                 .passwordHash(passwordEncoder.encode(req.password()))
-                .displayName(req.displayName() != null ? req.displayName() : req.username())
+                .displayName(req.displayName())
+                .firstName(req.firstName().trim())
+                .lastName(req.lastName().trim())
                 .birthDate(req.birthDate())
+                .birthPlace(req.birthPlace().trim())
+                .gender(req.gender().toUpperCase())
                 .build();
 
         user = userRepository.save(user);

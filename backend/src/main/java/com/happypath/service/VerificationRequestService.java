@@ -51,7 +51,7 @@ public class VerificationRequestService {
                 "Il carattere di controllo del codice fiscale (l'ultimo carattere) non è corretto. Verifica di aver inserito il codice fiscale esattamente come riportato sul documento.");
         }
 
-        // Controllo coerenza dati anagrafici con quelli forniti in fase di registrazione
+        // Confronto 1:1 tra i dati anagrafici della verifica e quelli salvati in registrazione
         assertConsistencyWithRegistration(user, dto);
 
         // Controllo incrociato CF con dati anagrafici
@@ -124,27 +124,41 @@ public class VerificationRequestService {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     /**
-     * Verifica che i dati anagrafici forniti per la verifica siano coerenti
-     * con quelli indicati dall'utente in fase di registrazione.
+     * Confronto 1:1 tra i dati anagrafici inviati per la verifica
+     * e quelli salvati sull'utente in fase di registrazione.
      *
-     * Controlla:
-     *  - birthDate: deve coincidere esattamente
-     *  - nome completo (firstName + lastName): deve corrispondere al displayName
-     *    registrato, confrontando in modo normalizzato (lowercase, senza accenti,
-     *    spazi multipli collassati)
+     * Campi confrontati:
+     *  - firstName  (normalizzato: trim, lowercase, senza diacritici)
+     *  - lastName   (normalizzato)
+     *  - birthDate  (uguaglianza esatta)
+     *  - birthPlace (normalizzato)
+     *  - gender     (case-insensitive)
      */
     private void assertConsistencyWithRegistration(User user, VerificationRequestDto dto) {
+
         if (user.getBirthDate() == null || !user.getBirthDate().equals(dto.birthDate())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "La data di nascita fornita per la verifica non coincide con quella indicata in fase di registrazione.");
+                    "La data di nascita fornita non coincide con quella indicata in fase di registrazione.");
         }
 
-        String registeredDisplayName = normalizeName(user.getDisplayName());
-        String verificationFullName  = normalizeName(dto.firstName() + " " + dto.lastName());
-
-        if (!registeredDisplayName.equals(verificationFullName)) {
+        if (!normalizeName(user.getFirstName()).equals(normalizeName(dto.firstName()))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "I dati anagrafici forniti per la verifica non sono coerenti con il nome visualizzato indicato in fase di registrazione.");
+                    "Il nome fornito non coincide con quello indicato in fase di registrazione.");
+        }
+
+        if (!normalizeName(user.getLastName()).equals(normalizeName(dto.lastName()))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il cognome fornito non coincide con quello indicato in fase di registrazione.");
+        }
+
+        if (!normalizeName(user.getBirthPlace()).equals(normalizeName(dto.birthPlace()))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il comune di nascita fornito non coincide con quello indicato in fase di registrazione.");
+        }
+
+        if (user.getGender() == null || !user.getGender().equalsIgnoreCase(dto.gender())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Il genere fornito non coincide con quello indicato in fase di registrazione.");
         }
     }
 
@@ -153,13 +167,11 @@ public class VerificationRequestService {
      * trim, rimozione diacritici (NFD), lowercase, collasso spazi multipli.
      */
     private String normalizeName(String value) {
-        if (value == null) {
-            return "";
-        }
-        String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
+        if (value == null) return "";
+        return Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
-                .toLowerCase();
-        return normalized.replaceAll("\\s+", " ");
+                .toLowerCase()
+                .replaceAll("\\s+", " ");
     }
 
     private VerificationRequest findOrThrow(Long id) {
