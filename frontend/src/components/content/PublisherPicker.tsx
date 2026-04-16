@@ -45,10 +45,10 @@ export default function PublisherPicker({
               : 'border-gray-200 hover:border-gray-300 text-gray-600'
           }`}
         >
-          <Avatar user={user as any} size="xs" />
-          <span>👤 {user.displayName}</span>
+          <Avatar user={user as any} size="sm" />
+          <span>\u{1F464} {user.displayName}</span>
           {selectedAlterEgoId === undefined && (
-            <span className="text-xs bg-happy-200 text-happy-800 rounded-full px-1.5 py-0.5">✓</span>
+            <span className="text-xs bg-happy-200 text-happy-800 rounded-full px-1.5 py-0.5">\u2713</span>
           )}
         </button>
 
@@ -74,11 +74,11 @@ export default function PublisherPicker({
                 loading="lazy"
               />
             ) : (
-              <span>🎭</span>
+              <span>\u{1F3AD}</span>
             )}
             <span>{ae.name}</span>
             {selectedAlterEgoId === ae.id && (
-              <span className="text-xs bg-purple-200 text-purple-800 rounded-full px-1.5 py-0.5">✓</span>
+              <span className="text-xs bg-purple-200 text-purple-800 rounded-full px-1.5 py-0.5">\u2713</span>
             )}
           </button>
         ))}
