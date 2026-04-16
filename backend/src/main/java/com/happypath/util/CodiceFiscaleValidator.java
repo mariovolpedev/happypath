@@ -23,9 +23,9 @@ public final class CodiceFiscaleValidator {
     private static final Map<Character, Integer> EVEN = buildEven();
 
     private static Map<Character, Integer> buildEven() {
-        String chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         var m = new java.util.HashMap<Character, Integer>();
-        for (int i = 0; i < chars.length(); i++) m.put(chars.charAt(i), i);
+        for (int i = 0; i < 10; i++)  m.put((char)('0' + i), i);       // '0'→0 … '9'→9
+        for (int i = 0; i < 26; i++)  m.put((char)('A' + i), i);       // 'A'→0 … 'Z'→25
         return m;
     }
 
