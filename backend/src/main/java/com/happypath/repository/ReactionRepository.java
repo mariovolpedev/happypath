@@ -6,14 +6,33 @@ import com.happypath.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface ReactionRepository extends JpaRepository<Reaction, Long> {
-    Optional<Reaction> findByUserAndContent(User user, Content content);
-    boolean existsByUserAndContent(User user, Content content);
-    long countByContent(Content content);
+
     List<Reaction> findByContent(Content content);
+
+    /** Usato da ReactionService */
+    Optional<Reaction> findByUserAndContent(User user, Content content);
+
+    /** Usato da ContentService */
+    Optional<Reaction> findByContentAndUser(Content content, User user);
+
+    boolean existsByContentAndUser(Content content, User user);
+
+    void deleteByContentAndUser(Content content, User user);
+
+    /** Usato da FeedService */
+    List<Reaction> findByUserInOrderByCreatedAtDesc(List<User> users);
+
+    /** Usato da UserActivityController */
     Page<Reaction> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+
+    /** Reactions dell'utente corrente sui content IDs dati — per myReaction bulk */
+    @Query("SELECT r FROM Reaction r WHERE r.content.id IN :ids AND r.user = :user")
+    List<Reaction> findByContentIdsAndUser(@Param("ids") List<Long> ids, @Param("user") User user);
 }

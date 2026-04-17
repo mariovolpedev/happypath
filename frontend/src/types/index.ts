@@ -4,6 +4,8 @@ export type ReactionType = 'HEART' | 'LAUGH' | 'WOW' | 'CLAP' | 'SMILE'
 export type BanDuration = 'SHORT' | 'MEDIUM' | 'LONG' | 'PERMANENT'
 export type ReportTarget = 'USER' | 'CONTENT' | 'COMMENT'
 export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
+export type FeedSortStrategy = 'RECENT' | 'RANDOM' | 'SMART'
+export type FeedItemType = 'CONTENT' | 'COMMENT' | 'REACTION' | 'FOLLOW_EVENT'
 
 export interface UserSummary {
   id: number
@@ -29,6 +31,10 @@ export interface ThemeResponse {
   name: string
   description?: string
   iconEmoji?: string
+  preset: boolean
+  followersCount: number
+  followedByMe: boolean
+  createdAt: string
 }
 
 export interface AlterEgoResponse {
@@ -66,6 +72,25 @@ export interface CommentResponse {
   parentId?: number
   status: ContentStatus
   createdAt: string
+}
+
+export interface FeedItemResponse {
+  type: FeedItemType
+  actor: UserSummary
+  content?: ContentResponse
+  comment?: CommentResponse
+  reactionType?: string
+  targetUser?: UserSummary
+  eventAt: string
+  score: number
+}
+
+export interface FeedSettings {
+  sortStrategy: FeedSortStrategy
+  showContents: boolean
+  showComments: boolean
+  showReactions: boolean
+  showFollowEvents: boolean
 }
 
 export interface MessageContentSummary {
