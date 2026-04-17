@@ -1,9 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getAllThemes, createTheme, followTheme, unfollowTheme } from '../api/themes'
 import type { ThemeResponse } from '../types'
 import Spinner from '../components/common/Spinner'
 import { useAuthStore } from '../store/authStore'
 import { Link } from 'react-router-dom'
+
+const EMOJI_LIST = [
+  '🎭','🎨','🎬','🎤','🎧','🎸','🎹','🎺','🎻','🥁',
+  '📚','📖','✏️','🖊️','📝','📰','🗞️','📓','📔','📒',
+  '🌍','🌊','🌈','🌸','🌻','🍀','🌴','🌵','🦋','🐬',
+  '🚀','✈️','🏔️','🏖️','🏙️','🗺️','🧭','🏕️','🌌','🌠',
+  '💡','🔬','🔭','⚗️','🧪','🤖','💻','📱','🎮','🕹️',
+  '🍕','🍣','🍜','🍩','☕','🍷','🎂','🥗','🌮','🧁',
+  '⚽','🏀','🎯','🏋️','🧘','🤸','🏄','🎾','🥊','🏆',
+  '❤️','💜','💙','💛','🗜️','🤍','💚','🧡','💗','💫',
+  '🦁','🐶','🐱','🦊','🐻','🐼','🦄','🐉','🦅','🐺',
+  '🎃','🎄','🎆','🎇','🧨','🎊','🎋','🎍','🎎','🎏',
+]
 
 export default function ThemesPage() {
   const { isAuthenticated } = useAuthStore()
@@ -17,12 +30,22 @@ export default function ThemesPage() {
   const [form, setForm]             = useState({ name: '', description: '', iconEmoji: '' })
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
+  const [showPicker, setShowPicker] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node))
+        setShowPicker(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const load = async () => {
     setLoading(true)
     try {
-      const data = await getAllThemes()
-      setThemes(data)          // backend returns plain array
+      setThemes(await getAllThemes())
     } catch {
       setThemes([])
     } finally {
@@ -40,11 +63,8 @@ export default function ThemesPage() {
 
   const handleFollow = async (t: ThemeResponse) => {
     if (!authed) return
-    if (t.followedByMe) {
-      await unfollowTheme(t.id)
-    } else {
-      await followTheme(t.id)
-    }
+    if (t.followedByMe) await unfollowTheme(t.id)
+    else await followTheme(t.id)
     setThemes(prev => prev.map(x => x.id === t.id
       ? { ...x, followedByMe: !x.followedByMe, followersCount: x.followersCount + (x.followedByMe ? -1 : 1) }
       : x
@@ -83,19 +103,53 @@ export default function ThemesPage() {
         )}
       </div>
 
-      {/* Form creazione */}
       {showCreate && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-3">
           <h2 className="font-semibold text-gray-700">Crea un tema personalizzato</h2>
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <div className="flex gap-2">
-            <input
-              className="input w-16 text-center text-xl"
-              placeholder="🎭"
-              maxLength={2}
-              value={form.iconEmoji}
-              onChange={e => setForm(f => ({ ...f, iconEmoji: e.target.value }))}
-            />
+
+          <div className="flex gap-2 items-start">
+            {/* Emoji picker */}
+            <div className="relative" ref={pickerRef}>
+              <button
+                type="button"
+                onClick={() => setShowPicker(v => !v)}
+                className="w-14 h-10 text-2xl flex items-center justify-center rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors"
+                title="Scegli emoji"
+              >
+                {form.iconEmoji || '🏷️'}
+              </button>
+
+              {showPicker && (
+                <div className="absolute z-50 top-12 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 w-64">
+                  <p className="text-xs text-gray-400 mb-2 px-1">Scegli un'icona</p>
+                  <div className="grid grid-cols-10 gap-0.5 max-h-48 overflow-y-auto">
+                    {EMOJI_LIST.map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => { setForm(f => ({ ...f, iconEmoji: emoji })); setShowPicker(false) }}
+                        className={`text-xl p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                          form.iconEmoji === emoji ? 'bg-hp-primary/10 ring-1 ring-hp-primary' : ''
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  {form.iconEmoji && (
+                    <button
+                      type="button"
+                      onClick={() => { setForm(f => ({ ...f, iconEmoji: '' })); setShowPicker(false) }}
+                      className="mt-2 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      Rimuovi icona
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <input
               className="input flex-1"
               placeholder="Nome del tema *"
@@ -104,6 +158,7 @@ export default function ThemesPage() {
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             />
           </div>
+
           <textarea
             className="input w-full resize-none"
             rows={2}
@@ -117,7 +172,6 @@ export default function ThemesPage() {
         </form>
       )}
 
-      {/* Search + tabs */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <input
           className="input flex-1"
@@ -131,9 +185,7 @@ export default function ThemesPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === t
-                  ? 'bg-hp-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                tab === t ? 'bg-hp-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {t === 'all' ? 'Tutti' : t === 'preset' ? '⭐ Predefiniti' : '👤 Custom'}
@@ -155,9 +207,7 @@ export default function ThemesPage() {
                   <p className="font-semibold text-gray-800 truncate">
                     {theme.name}
                     {theme.preset && (
-                      <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                        preset
-                      </span>
+                      <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">preset</span>
                     )}
                   </p>
                   {theme.description && (
