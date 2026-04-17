@@ -5,7 +5,7 @@ import type { ThemeResponse } from '../types'
 export function useThemes() {
   const [themes, setThemes] = useState<ThemeResponse[]>([])
   useEffect(() => {
-    getAllThemes(0, 100).then(page => setThemes(page.content)).catch(() => {})
+    getAllThemes().then(setThemes).catch(() => {})
   }, [])
   return themes
 }
