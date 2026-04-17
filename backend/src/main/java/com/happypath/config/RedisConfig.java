@@ -22,35 +22,34 @@ import java.util.Map;
 /**
  * Configurazione Redis con TTL differenziati per cache name.
  *
- * Cache attive e relative politiche:
+ * FIX: usato DefaultTyping.EVERYTHING + As.WRAPPER_ARRAY invece di
+ * NON_FINAL + PROPERTY.
  *
+ * Il problema con NON_FINAL + PROPERTY era che Jackson serializzava i
+ * List<ThemeResponse> con il type-id come primo campo dell'oggetto (PROPERTY),
+ * ma al momento della deserializzazione l'array-root causava:
+ *   "need String, Number of Boolean value that contains type id"
+ * perché il deserializzatore cercava un campo stringa "@class" ma trovava
+ * l'inizio di un array JSON.
+ *
+ * Con WRAPPER_ARRAY il type-id viene scritto come primo elemento dell'array:
+ *   ["com.happypath.dto.response.ThemeResponse", { ...fields... }]
+ * e i List<T> vengono avvolti allo stesso modo, risolvendo l'ambiguità.
+ *
+ * Cache attive:
  *   content-single   → TTL 10 min  — singolo contenuto per ID
- *                       Evict su update/delete/changePublisher
- *
- *   themes-all       → TTL 60 min  — lista completa temi (quasi statica)
- *                       Evict su create/follow/unfollow tema
- *
- *   themes-presets   → TTL 60 min  — solo temi preset (immutabili in pratica)
- *
+ *   themes-all       → TTL 60 min  — lista completa temi
+ *   themes-presets   → TTL 60 min  — solo temi preset
  *   user-profile     → TTL  5 min  — profilo pubblico utente
- *                       Evict su updateProfile, follow, unfollow
- *
  *   search-results   → TTL  2 min  — risultati di ricerca testuale
- *                       Breve TTL: i contenuti cambiano frequentemente
  *
- * NON cachati (motivazione esplicita):
- *   - feed (home/global)      → personalizzato per utente, altamente dinamico
- *   - notifiche               → devono essere sempre fresche (real-time)
- *   - messaggi privati        → privacy + real-time
- *   - alter ego personali     → dati mutabili legati all'utente autenticato
- *   - moderazione / report    → richiede dati sempre aggiornati
- *   - autenticazione / JWT    → dati sensibili, non cachare mai
+ * NON cachati:
+ *   feed, notifiche, messaggi privati, alter ego, moderazione, auth/JWT
  */
 @Configuration
 @EnableCaching
 public class RedisConfig {
 
-    /** Nomi delle cache — usati come costanti nei @Cacheable/@CacheEvict */
     public static final String CACHE_CONTENT_SINGLE  = "content-single";
     public static final String CACHE_THEMES_ALL      = "themes-all";
     public static final String CACHE_THEMES_PRESETS  = "themes-presets";
@@ -59,16 +58,26 @@ public class RedisConfig {
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory factory) {
-        ObjectMapper om = new ObjectMapper()
+        /*
+         * ObjectMapper dedicato alla serializzazione Redis.
+         * NON riusare il bean ObjectMapper di Spring MVC: le opzioni di
+         * default typing interferirebbero con la serializzazione HTTP JSON.
+         *
+         * DefaultTyping.EVERYTHING  → include type info anche per tipi final
+         *                             (String, Boolean, Integer inclusi nelle DTO)
+         * As.WRAPPER_ARRAY          → ["fully.qualified.ClassName", { ...payload... }]
+         *                             compatibile con array/collection root.
+         */
+        ObjectMapper redisObjectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .activateDefaultTyping(
                         LaissezFaireSubTypeValidator.instance,
-                        ObjectMapper.DefaultTyping.NON_FINAL,
-                        JsonTypeInfo.As.PROPERTY);
+                        ObjectMapper.DefaultTyping.EVERYTHING,
+                        JsonTypeInfo.As.WRAPPER_ARRAY);
 
         GenericJackson2JsonRedisSerializer jsonSerializer =
-                new GenericJackson2JsonRedisSerializer(om);
+                new GenericJackson2JsonRedisSerializer(redisObjectMapper);
 
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(
