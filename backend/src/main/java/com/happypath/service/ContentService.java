@@ -83,12 +83,6 @@ public class ContentService {
         return toResponse(contentRepository.save(content), user);
     }
 
-    /**
-     * Cambia il profilo con cui un contenuto è pubblicato.
-     * Solo l'autore originale può farlo.
-     * alterEgoId = null  → torna al profilo reale
-     * alterEgoId = <id>  → pubblica come alter ego (richiede utente verificato)
-     */
     @Transactional
     public ContentResponse changePublisher(Long contentId, User requester, Long alterEgoId) {
         Content content = findById(contentId);
@@ -185,8 +179,10 @@ public class ContentService {
                 : null;
 
         ThemeResponse themeResp = c.getTheme() == null ? null :
-                new ThemeResponse(c.getTheme().getId(), c.getTheme().getName(),
-                        c.getTheme().getDescription(), c.getTheme().getIconEmoji());
+                new ThemeResponse(
+                        c.getTheme().getId(), c.getTheme().getName(),
+                        c.getTheme().getDescription(), c.getTheme().getIconEmoji(),
+                        c.getTheme().isPreset(), 0L, false, c.getTheme().getCreatedAt());
 
         return new ContentResponse(
                 c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),

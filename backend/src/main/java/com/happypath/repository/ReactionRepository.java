@@ -11,9 +11,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ReactionRepository extends JpaRepository<Reaction, Long> {
+
+    // --- metodi pre-esistenti ---
     Optional<Reaction> findByUserAndContent(User user, Content content);
     boolean existsByUserAndContent(User user, Content content);
     long countByContent(Content content);
     List<Reaction> findByContent(Content content);
     Page<Reaction> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+
+    // --- nuovo metodo per il feed ---
+    List<Reaction> findByUserInOrderByCreatedAtDesc(List<User> users);
 }

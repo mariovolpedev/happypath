@@ -48,25 +48,20 @@ public class FeedService {
         List<FeedItemResponse> items = new ArrayList<>();
 
         if (settings.isShowContents() && (!followedUsers.isEmpty() || !followedThemeIds.isEmpty())) {
-            List<User> authors = followedUsers.isEmpty() ? List.of() : followedUsers;
-            List<Long> themeIds = followedThemeIds.isEmpty() ? List.of() : followedThemeIds;
             contentRepository.findByAuthorsOrThemeIdsAndStatus(
-                            authors, themeIds, ContentStatus.ACTIVE,
+                            followedUsers, followedThemeIds, ContentStatus.ACTIVE,
                             PageRequest.of(0, FEED_RAW_LIMIT))
                     .forEach(c -> items.add(buildContentItem(c)));
         }
 
         if (settings.isShowComments() && !followedUsers.isEmpty()) {
             commentRepository.findByAuthorInAndStatusOrderByCreatedAtDesc(
-                            followedUsers, CommentStatus.ACTIVE,
-                            PageRequest.of(0, FEED_RAW_LIMIT))
+                            followedUsers, ContentStatus.ACTIVE)
                     .forEach(c -> items.add(buildCommentItem(c)));
         }
 
         if (settings.isShowReactions() && !followedUsers.isEmpty()) {
-            reactionRepository.findByUserInOrderByCreatedAtDesc(
-                            followedUsers,
-                            PageRequest.of(0, FEED_RAW_LIMIT))
+            reactionRepository.findByUserInOrderByCreatedAtDesc(followedUsers)
                     .forEach(r -> items.add(buildReactionItem(r)));
         }
 
@@ -133,7 +128,8 @@ public class FeedService {
 
     private UserSummary toUserSummary(User u) {
         if (u == null) return null;
-        return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(), u.getAvatarUrl(), u.getRole(), u.isVerified());
+        return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(),
+                u.getAvatarUrl(), u.getRole(), u.isVerified());
     }
 
     private ContentResponse toContentResponse(Content c) {
@@ -143,19 +139,20 @@ public class FeedService {
         Map<String, Long> byType = c.getReactions().stream()
                 .collect(Collectors.groupingBy(r -> r.getType().name(), Collectors.counting()));
         ThemeResponse theme = c.getTheme() == null ? null
-                : new ThemeResponse(c.getTheme().getId(), c.getTheme().getName(),
-                c.getTheme().getDescription(), c.getTheme().getIconEmoji(),
-                c.getTheme().isPreset(), 0, false, c.getTheme().getCreatedAt());
+                : new ThemeResponse(
+                        c.getTheme().getId(), c.getTheme().getName(),
+                        c.getTheme().getDescription(), c.getTheme().getIconEmoji(),
+                        c.getTheme().isPreset(), 0L, false, c.getTheme().getCreatedAt());
         return new ContentResponse(
                 c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),
                 toUserSummary(c.getAuthor()), null, theme,
                 c.getStatus(), reactions, comments, byType, null,
-                List.of(), c.getCreatedAt(), c.getUpdatedAt()
-        );
+                List.of(), c.getCreatedAt(), c.getUpdatedAt());
     }
 
     private CommentResponse toCommentResponse(Comment c) {
         if (c == null) return null;
-        return new CommentResponse(c.getId(), toUserSummary(c.getAuthor()), c.getBody(), c.getCreatedAt());
+        return new CommentResponse(c.getId(), toUserSummary(c.getAuthor()),
+                c.getText(), c.getCreatedAt());
     }
 }
