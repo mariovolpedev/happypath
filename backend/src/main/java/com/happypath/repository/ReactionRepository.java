@@ -3,6 +3,8 @@ package com.happypath.repository;
 import com.happypath.model.Content;
 import com.happypath.model.Reaction;
 import com.happypath.model.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,7 +26,11 @@ public interface ReactionRepository extends JpaRepository<Reaction, Long> {
 
     void deleteByContentAndUser(Content content, User user);
 
+    /** Usato da FeedService */
     List<Reaction> findByUserInOrderByCreatedAtDesc(List<User> users);
+
+    /** Usato da UserActivityController */
+    Page<Reaction> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
 
     /** Reactions dell'utente corrente sui content IDs dati — per myReaction bulk */
     @Query("SELECT r FROM Reaction r WHERE r.content.id IN :ids AND r.user = :user")
