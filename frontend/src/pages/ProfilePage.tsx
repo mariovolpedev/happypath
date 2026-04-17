@@ -19,6 +19,7 @@ import Avatar from '../components/common/Avatar'
 import VerifiedBadge from '../components/common/VerifiedBadge'
 import ContentCard from '../components/content/ContentCard'
 import ReportModal from '../components/content/ReportModal'
+import UserHoverCard from '../components/common/UserHoverCard'
 import Spinner from '../components/common/Spinner'
 import { useAuthStore } from '../store/authStore'
 
@@ -110,7 +111,6 @@ function VerificationPanel() {
         </span>
       </div>
 
-      {/* Motivo rifiuto, se presente */}
       {status === 'REJECTED' && (vrStatus as VerificationRequestResponse).reviewNote && (
         <div className="rounded-xl p-3 text-sm" style={{ background: '#fef2f2', color: '#b91c1c' }}>
           <strong>Motivo rifiuto:</strong> {(vrStatus as VerificationRequestResponse).reviewNote}
@@ -118,10 +118,7 @@ function VerificationPanel() {
       )}
 
       {(status === 'NONE' || status === 'REJECTED') && !showForm && (
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary text-sm"
-        >
+        <button onClick={() => setShowForm(true)} className="btn-primary text-sm">
           {status === 'REJECTED' ? '🔄 Invia nuova richiesta' : '+ Richiedi verifica'}
         </button>
       )}
@@ -136,11 +133,6 @@ function VerificationPanel() {
   )
 }
 
-/* ────────────────────────────────────────────────────────────
-   Form di richiesta verifica
-   Legge il messaggio di errore dal body JSON restituito dal
-   GlobalExceptionHandler: { message, status, timestamp }
-   ──────────────────────────────────────────────────────────── */
 function VerificationForm({
   onCancel,
   onSuccess,
@@ -161,7 +153,6 @@ function VerificationForm({
       if (k === 'fiscalCode') setCfError('')
     }
 
-  /* Validazione CF lato client: lunghezza + charset base */
   const validateCF = (cf: string): string => {
     if (cf.length !== 16) return 'Il codice fiscale deve avere esattamente 16 caratteri.'
     if (!/^[A-Za-z]{6}[0-9LMNPQRSTUVlmnpqrstuv]{2}[A-Za-zHhAbBcCdDeElLmMpPrRsStT][0-9LMNPQRSTUVlmnpqrstuv]{2}[A-Za-z][0-9LMNPQRSTUVlmnpqrstuv]{3}[A-Za-z]$/.test(cf))
@@ -185,17 +176,6 @@ function VerificationForm({
       })
       onSuccess(res)
     } catch (err: any) {
-      /*
-       * Il GlobalExceptionHandler restituisce sempre:
-       *   { message: string, status: number, timestamp: string }
-       *
-       * Casi specifici:
-       *   422 → CF non formalmente valido (lunghezza/charset/carattere controllo)
-       *   422 → CF non coerente con nome/cognome/data/comune
-       *   409 → richiesta già pendente
-       *
-       * Fallback a messaggio generico se la risposta non è JSON strutturato.
-       */
       const data = err?.response?.data
       const message =
         (typeof data?.message === 'string' && data.message)
@@ -224,7 +204,6 @@ function VerificationForm({
           <input required className={inputCls} value={form.lastName} onChange={set('lastName')} placeholder="Rossi" />
         </div>
       </div>
-
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Data di nascita *</label>
@@ -238,12 +217,10 @@ function VerificationForm({
           </select>
         </div>
       </div>
-
       <div>
         <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Comune di nascita *</label>
         <input required className={inputCls} value={form.birthPlace} onChange={set('birthPlace')} placeholder="Roma" />
       </div>
-
       <div>
         <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Codice fiscale *</label>
         <input
@@ -257,24 +234,17 @@ function VerificationForm({
         />
         {cfError && <p className="text-xs text-red-500 mt-1">{cfError}</p>}
       </div>
-
       <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
         🔒 I tuoi dati vengono usati solo per la verifica e non sono pubblici.
       </p>
-
       {apiError && (
         <div className="rounded-xl p-3 text-sm" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
           ⚠️ {apiError}
         </div>
       )}
-
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Annulla</button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-primary flex-1 justify-center disabled:opacity-50"
-        >
+        <button type="submit" disabled={loading} className="btn-primary flex-1 justify-center disabled:opacity-50">
           {loading ? 'Invio…' : '📨 Invia richiesta'}
         </button>
       </div>
@@ -356,7 +326,6 @@ export default function ProfilePage() {
   }
 
   if (loading) return <Spinner />
-
   if (!profile) return <p className="text-center" style={{ color: 'var(--text-muted)' }}>Utente non trovato</p>
 
   const isMe       = me?.username === username
@@ -500,7 +469,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Pannello verifica identità — solo al proprietario non verificato */}
         {isMe && !profile.verified && <VerificationPanel />}
 
         {/* ── Tab bar ── */}
@@ -552,8 +520,8 @@ export default function ProfilePage() {
                         <img src={r.content.mediaUrl} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-gray-800 line-clamp-2">{r.content.title}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="font-semibold text-sm line-clamp-2" style={{ color: 'var(--text-primary)' }}>{r.content.title}</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
                           {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true, locale: it })}
                         </p>
                       </div>
@@ -571,8 +539,8 @@ export default function ProfilePage() {
                       <div className="text-lg flex-shrink-0 mt-0.5">💬</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-happy-600 font-medium mb-1 line-clamp-1">su "{c.content.title}"</p>
-                        <p className="text-sm text-gray-700 line-clamp-3">{c.text}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-sm line-clamp-3" style={{ color: 'var(--text-primary)' }}>{c.text}</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
                           {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: it })}
                         </p>
                       </div>

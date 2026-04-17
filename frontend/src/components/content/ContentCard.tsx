@@ -7,6 +7,7 @@ import Avatar from '../common/Avatar'
 import VerifiedBadge from '../common/VerifiedBadge'
 import ReportModal from './ReportModal'
 import ShareContentButton from '../messages/ShareContentButton'
+import UserHoverCard from '../common/UserHoverCard'
 import { react, removeReaction, changePublisher } from '../../api/content'
 import { getMyAlterEgos } from '../../api/alterEgos'
 import { useAuthStore } from '../../store/authStore'
@@ -74,7 +75,6 @@ function ChangePublisherInline({
     <div className="px-3 py-2">
       <p className="text-xs text-gray-400 mb-2">Pubblica come:</p>
       <div className="space-y-1">
-        {/* Profilo reale */}
         <button
           onClick={() => pick(null)}
           disabled={saving}
@@ -88,7 +88,6 @@ function ChangePublisherInline({
           )}
         </button>
 
-        {/* Alter ego disponibili */}
         {alterEgos.map(ae => (
           <button
             key={ae.id}
@@ -181,7 +180,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
       <article className="card hover:shadow-md transition-shadow">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2.5 group">
+          <div className="flex items-center gap-2.5">
             {content.alterEgo ? (
               <Link to={`/ae/${content.alterEgo.id}`}>
                 <Avatar user={displayAuthor as any} size="md" />
@@ -206,20 +205,26 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                     </span>
                   </>
                 ) : (
-                  <Link to={`/u/${content.author.username}`}
-                    className="hover:text-happy-600 transition-colors">
-                    {content.author.displayName}
-                  </Link>
+                  <UserHoverCard username={content.author.username} displayName={content.author.displayName}>
+                    <Link to={`/u/${content.author.username}`}
+                      className="hover:text-happy-600 transition-colors"
+                      style={{ color: 'var(--text-primary)' }}>
+                      {content.author.displayName}
+                    </Link>
+                  </UserHoverCard>
                 )}
                 {content.author.verified && <VerifiedBadge />}
               </div>
               {content.alterEgo && (
                 <div className="text-xs" style={{ color: 'var(--text-faint)' }}>
                   via{' '}
-                  <Link to={`/u/${content.author.username}`}
-                    className="hover:text-happy-600 transition-colors">
-                    {content.author.displayName}
-                  </Link>
+                  <UserHoverCard username={content.author.username} displayName={content.author.displayName}>
+                    <Link to={`/u/${content.author.username}`}
+                      className="hover:text-happy-600 transition-colors"
+                      style={{ color: 'var(--text-faint)' }}>
+                      {content.author.displayName}
+                    </Link>
+                  </UserHoverCard>
                 </div>
               )}
               <div className="text-xs" style={{ color: 'var(--text-faint)' }}>
@@ -335,7 +340,6 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               {content.reactionsCount}
             </button>
 
-            {/* Picker identità per la reazione */}
             {showAePicker && (
               <div
                 className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
