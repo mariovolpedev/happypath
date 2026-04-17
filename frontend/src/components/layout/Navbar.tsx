@@ -24,9 +24,6 @@ export default function Navbar() {
   const currentTheme = THEME_OPTIONS.find(t => t.mode === mode) ?? THEME_OPTIONS[2]
   const nextTheme    = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
 
-  // Badge richieste di verifica pendenti (solo per mod/admin)
-  // Il hook viene chiamato incondizionatamente per rispettare le regole degli hook React;
-  // il valore viene usato solo se l'utente è moderatore/admin.
   const pendingVerifCount = usePendingVerifications()
   const pendingVerif = isModeratorOrAdmin() ? pendingVerifCount : 0
 
@@ -42,7 +39,6 @@ export default function Navbar() {
     }
   }
 
-  /* Chiudi il menu cliccando fuori */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node))
@@ -102,7 +98,7 @@ export default function Navbar() {
               {/* Pubblica */}
               <Link to="/create" className="btn-primary text-sm shrink-0">+ Pubblica</Link>
 
-              {/* Notifiche — passa le verifiche pendenti se mod/admin */}
+              {/* Notifiche */}
               <NotificationBell pendingVerifications={pendingVerif} />
 
               {/* Messaggi */}
@@ -140,7 +136,9 @@ export default function Navbar() {
                     className="absolute right-0 mt-2 w-52 rounded-2xl shadow-xl border py-1 z-50"
                     style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
                   >
-                    <MenuLink to="/home"                  onClick={() => setMenuOpen(false)} icon="🏠" label="Home" />
+                    <MenuLink to="/home"                   onClick={() => setMenuOpen(false)} icon="🏠" label="Home" />
+                    <MenuLink to="/feed"                   onClick={() => setMenuOpen(false)} icon="✨" label="Feed personalizzato" />
+                    <MenuLink to="/themes"                 onClick={() => setMenuOpen(false)} icon="🏷️" label="Temi" />
                     <MenuLink to={`/u/${user?.username}`}  onClick={() => setMenuOpen(false)} icon="👤" label="Profilo" />
 
                     {user?.verified && (
@@ -173,6 +171,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              <Link to="/themes"   className="btn-secondary text-sm">🏷️ Temi</Link>
               <Link to="/login"    className="btn-secondary text-sm">Accedi</Link>
               <Link to="/register" className="btn-primary  text-sm">Registrati</Link>
             </>
