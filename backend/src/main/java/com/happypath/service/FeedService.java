@@ -152,7 +152,14 @@ public class FeedService {
 
     private CommentResponse toCommentResponse(Comment c) {
         if (c == null) return null;
-        return new CommentResponse(c.getId(), toUserSummary(c.getAuthor()),
-                c.getText(), c.getCreatedAt());
+        return new CommentResponse(
+                c.getId(),
+                c.getText(),
+                toUserSummary(c.getAuthor()),
+                null,  // alterEgo — non esposto nel feed
+                c.getParent() != null ? c.getParent().getId() : null,
+                c.getStatus(),
+                c.getCreatedAt()
+        );
     }
 }
