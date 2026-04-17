@@ -2,7 +2,7 @@ package com.happypath.service;
 
 import com.happypath.dto.request.FeedSettingsRequest;
 import com.happypath.dto.response.FeedSettingsResponse;
-import com.happypath.exception.NotFoundException;
+import com.happypath.exception.ResourceNotFoundException;
 import com.happypath.model.FeedSettings;
 import com.happypath.model.User;
 import com.happypath.repository.FeedSettingsRepository;
@@ -20,7 +20,7 @@ public class FeedSettingsService {
 
     public FeedSettingsResponse getSettings(String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         FeedSettings settings = feedSettingsRepository.findByUser(user)
                 .orElseGet(() -> FeedSettings.builder().user(user).build());
         return toResponse(settings);
@@ -29,7 +29,7 @@ public class FeedSettingsService {
     @Transactional
     public FeedSettingsResponse updateSettings(String username, FeedSettingsRequest req) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         FeedSettings settings = feedSettingsRepository.findByUser(user)
                 .orElseGet(() -> FeedSettings.builder().user(user).build());
 

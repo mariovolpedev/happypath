@@ -3,7 +3,7 @@ package com.happypath.service;
 import com.happypath.dto.response.*;
 import com.happypath.model.*;
 import com.happypath.repository.*;
-import com.happypath.exception.NotFoundException;
+import com.happypath.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -12,21 +12,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-/**
- * Costruisce il feed personalizzato per l'utente corrente.
- *
- * Logica di scoring (SMART):
- *   score = baseWeight(type) + recencyBonus(hours) + jitter
- *
- *   baseWeight: CONTENT=10, COMMENT=8, REACTION=5, FOLLOW_EVENT=4
- *   recencyBonus: exponential decay — 10 * e^(-hours/48)
- *   jitter: valore casuale [0, 2] per randomizzazione leggera
- *
- * RECENT: ordine solo per eventAt desc
- * RANDOM: shuffle casuale puro
- */
 @Service
 @RequiredArgsConstructor
 public class FeedService {
@@ -49,32 +35,27 @@ public class FeedService {
 
     public List<FeedItemResponse> getFeed(String username, int page, int size) {
         User me = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         FeedSettings settings = feedSettingsRepository.findByUser(me)
                 .orElseGet(() -> FeedSettings.builder().user(me).build());
 
-        // utenti seguiti
         List<User> followedUsers = followRepository.findByFollower(me)
                 .stream().map(Follow::getFollowed).toList();
 
-        // temi seguiti
         List<Long> followedThemeIds = themeFollowRepository.findFollowedThemeIdsByUser(me);
 
         List<FeedItemResponse> items = new ArrayList<>();
 
-        // --- CONTENT
         if (settings.isShowContents() && (!followedUsers.isEmpty() || !followedThemeIds.isEmpty())) {
             List<User> authors = followedUsers.isEmpty() ? List.of() : followedUsers;
             List<Long> themeIds = followedThemeIds.isEmpty() ? List.of() : followedThemeIds;
-
             contentRepository.findByAuthorsOrThemeIdsAndStatus(
                             authors, themeIds, ContentStatus.ACTIVE,
                             PageRequest.of(0, FEED_RAW_LIMIT))
                     .forEach(c -> items.add(buildContentItem(c)));
         }
 
-        // --- COMMENT (interazioni dei collegamenti)
         if (settings.isShowComments() && !followedUsers.isEmpty()) {
             commentRepository.findByAuthorInAndStatusOrderByCreatedAtDesc(
                             followedUsers, CommentStatus.ACTIVE,
@@ -82,7 +63,6 @@ public class FeedService {
                     .forEach(c -> items.add(buildCommentItem(c)));
         }
 
-        // --- REACTION (interazioni dei collegamenti)
         if (settings.isShowReactions() && !followedUsers.isEmpty()) {
             reactionRepository.findByUserInOrderByCreatedAtDesc(
                             followedUsers,
@@ -90,23 +70,18 @@ public class FeedService {
                     .forEach(r -> items.add(buildReactionItem(r)));
         }
 
-        // --- FOLLOW_EVENT
         if (settings.isShowFollowEvents() && !followedUsers.isEmpty()) {
             followRepository.findByFollowerIn(followedUsers)
                     .forEach(f -> items.add(buildFollowItem(f)));
         }
 
-        // ordina
         List<FeedItemResponse> sorted = sortItems(items, settings.getSortStrategy());
 
-        // paginazione manuale
         int from = page * size;
         int to = Math.min(from + size, sorted.size());
         if (from >= sorted.size()) return List.of();
         return sorted.subList(from, to);
     }
-
-    // --------------------------------------------------------- sort strategies
 
     private List<FeedItemResponse> sortItems(List<FeedItemResponse> items, FeedSortStrategy strategy) {
         return switch (strategy) {
@@ -124,60 +99,29 @@ public class FeedService {
         };
     }
 
-    // ------------------------------------------------------- item builders
-
     private FeedItemResponse buildContentItem(Content c) {
-        double score = smartScore(FeedItem.CONTENT, c.getCreatedAt());
-        return new FeedItemResponse(
-                FeedItem.CONTENT,
-                toUserSummary(c.getAuthor()),
-                toContentResponse(c),
-                null, null, null,
-                c.getCreatedAt(),
-                score
-        );
+        return new FeedItemResponse(FeedItem.CONTENT, toUserSummary(c.getAuthor()),
+                toContentResponse(c), null, null, null, c.getCreatedAt(),
+                smartScore(FeedItem.CONTENT, c.getCreatedAt()));
     }
 
     private FeedItemResponse buildCommentItem(Comment c) {
-        double score = smartScore(FeedItem.COMMENT, c.getCreatedAt());
-        return new FeedItemResponse(
-                FeedItem.COMMENT,
-                toUserSummary(c.getAuthor()),
-                toContentResponse(c.getContent()),
-                toCommentResponse(c),
-                null, null,
-                c.getCreatedAt(),
-                score
-        );
+        return new FeedItemResponse(FeedItem.COMMENT, toUserSummary(c.getAuthor()),
+                toContentResponse(c.getContent()), toCommentResponse(c), null, null,
+                c.getCreatedAt(), smartScore(FeedItem.COMMENT, c.getCreatedAt()));
     }
 
     private FeedItemResponse buildReactionItem(Reaction r) {
-        double score = smartScore(FeedItem.REACTION, r.getCreatedAt());
-        return new FeedItemResponse(
-                FeedItem.REACTION,
-                toUserSummary(r.getUser()),
-                toContentResponse(r.getContent()),
-                null,
-                r.getType().name(),
-                null,
-                r.getCreatedAt(),
-                score
-        );
+        return new FeedItemResponse(FeedItem.REACTION, toUserSummary(r.getUser()),
+                toContentResponse(r.getContent()), null, r.getType().name(), null,
+                r.getCreatedAt(), smartScore(FeedItem.REACTION, r.getCreatedAt()));
     }
 
     private FeedItemResponse buildFollowItem(Follow f) {
-        double score = smartScore(FeedItem.FOLLOW_EVENT, f.getCreatedAt());
-        return new FeedItemResponse(
-                FeedItem.FOLLOW_EVENT,
-                toUserSummary(f.getFollower()),
-                null, null, null,
-                toUserSummary(f.getFollowed()),
-                f.getCreatedAt(),
-                score
-        );
+        return new FeedItemResponse(FeedItem.FOLLOW_EVENT, toUserSummary(f.getFollower()),
+                null, null, null, toUserSummary(f.getFollowed()),
+                f.getCreatedAt(), smartScore(FeedItem.FOLLOW_EVENT, f.getCreatedAt()));
     }
-
-    // ---------------------------------------------------------- scoring
 
     private double smartScore(FeedItem type, LocalDateTime eventAt) {
         double base = BASE_WEIGHT.getOrDefault(type, 5.0);
@@ -186,8 +130,6 @@ public class FeedService {
         double jitter = Math.random() * 2.0;
         return base + recency + jitter;
     }
-
-    // ---------------------------------------------------------- mappers
 
     private UserSummary toUserSummary(User u) {
         if (u == null) return null;
@@ -214,11 +156,6 @@ public class FeedService {
 
     private CommentResponse toCommentResponse(Comment c) {
         if (c == null) return null;
-        return new CommentResponse(
-                c.getId(),
-                toUserSummary(c.getAuthor()),
-                c.getBody(),
-                c.getCreatedAt()
-        );
+        return new CommentResponse(c.getId(), toUserSummary(c.getAuthor()), c.getBody(), c.getCreatedAt());
     }
 }

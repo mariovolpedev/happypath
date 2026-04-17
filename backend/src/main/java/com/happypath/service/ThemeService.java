@@ -3,7 +3,7 @@ package com.happypath.service;
 import com.happypath.dto.request.ThemeCreateRequest;
 import com.happypath.dto.response.ThemeResponse;
 import com.happypath.exception.ConflictException;
-import com.happypath.exception.NotFoundException;
+import com.happypath.exception.ResourceNotFoundException;
 import com.happypath.model.Theme;
 import com.happypath.model.ThemeFollow;
 import com.happypath.model.User;
@@ -23,8 +23,6 @@ public class ThemeService {
     private final ThemeRepository themeRepository;
     private final ThemeFollowRepository themeFollowRepository;
     private final UserRepository userRepository;
-
-    // ------------------------------------------------------------------ query
 
     public List<ThemeResponse> getAll(String currentUsername) {
         User me = currentUsername != null ? userRepository.findByUsername(currentUsername).orElse(null) : null;
@@ -49,13 +47,11 @@ public class ThemeService {
 
     public List<ThemeResponse> getFollowedByMe(String username) {
         User me = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return themeFollowRepository.findByUser(me).stream()
                 .map(tf -> toResponse(tf.getTheme(), me))
                 .toList();
     }
-
-    // --------------------------------------------------------------- commands
 
     @Transactional
     public ThemeResponse create(ThemeCreateRequest req, String currentUsername) {
@@ -63,7 +59,7 @@ public class ThemeService {
             throw new ConflictException("Theme name already exists");
         }
         User me = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Theme saved = themeRepository.save(
                 Theme.builder()
                         .name(req.name())
@@ -78,9 +74,9 @@ public class ThemeService {
     @Transactional
     public void followTheme(Long themeId, String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Theme theme = themeRepository.findById(themeId)
-                .orElseThrow(() -> new NotFoundException("Theme not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Theme not found"));
         if (themeFollowRepository.existsByUserAndTheme(user, theme)) {
             throw new ConflictException("Already following this theme");
         }
@@ -90,15 +86,13 @@ public class ThemeService {
     @Transactional
     public void unfollowTheme(Long themeId, String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Theme theme = themeRepository.findById(themeId)
-                .orElseThrow(() -> new NotFoundException("Theme not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Theme not found"));
         ThemeFollow tf = themeFollowRepository.findByUserAndTheme(user, theme)
-                .orElseThrow(() -> new NotFoundException("Not following this theme"));
+                .orElseThrow(() -> new ResourceNotFoundException("Not following this theme"));
         themeFollowRepository.delete(tf);
     }
-
-    // ----------------------------------------------------------------- helper
 
     private ThemeResponse toResponse(Theme t, User me) {
         boolean followedByMe = me != null && themeFollowRepository.existsByUserAndTheme(me, t);
