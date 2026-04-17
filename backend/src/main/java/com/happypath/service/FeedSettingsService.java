@@ -4,6 +4,7 @@ import com.happypath.dto.request.FeedSettingsRequest;
 import com.happypath.dto.response.FeedSettingsResponse;
 import com.happypath.exception.ResourceNotFoundException;
 import com.happypath.model.FeedSettings;
+import com.happypath.model.FeedSortStrategy;
 import com.happypath.model.User;
 import com.happypath.repository.FeedSettingsRepository;
 import com.happypath.repository.UserRepository;
@@ -37,7 +38,12 @@ public class FeedSettingsService {
         settings.setShowComments(req.showComments());
         settings.setShowReactions(req.showReactions());
         settings.setShowFollowEvents(req.showFollowEvents());
-        settings.setSortStrategy(req.sortStrategy());
+        // Guard: se il client non invia sortStrategy (o invia null), mantieni il valore attuale
+        // oppure usa SMART come default sicuro
+        FeedSortStrategy strategy = req.sortStrategy() != null
+                ? req.sortStrategy()
+                : (settings.getSortStrategy() != null ? settings.getSortStrategy() : FeedSortStrategy.SMART);
+        settings.setSortStrategy(strategy);
 
         return toResponse(feedSettingsRepository.save(settings));
     }
@@ -48,7 +54,7 @@ public class FeedSettingsService {
                 s.isShowComments(),
                 s.isShowReactions(),
                 s.isShowFollowEvents(),
-                s.getSortStrategy()
+                s.getSortStrategy() != null ? s.getSortStrategy() : FeedSortStrategy.SMART
         );
     }
 }
