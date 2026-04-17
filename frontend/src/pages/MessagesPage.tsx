@@ -17,7 +17,6 @@ export default function MessagesPage() {
   const [selectedPartner, setSelectedPartner] = useState<UserSummary | null>(null)
   const [mobileShowChat, setMobileShowChat] = useState(false)
 
-  // Load conversations
   const loadConversations = useCallback(async () => {
     try {
       const data = await getConversations()
@@ -31,7 +30,6 @@ export default function MessagesPage() {
     loadConversations()
   }, [loadConversations])
 
-  // Deep-link: /messages?with=<username>
   useEffect(() => {
     const withUsername = searchParams.get('with')
     if (withUsername) {
@@ -57,32 +55,43 @@ export default function MessagesPage() {
     setMobileShowChat(true)
   }
 
-  const handleMessageSent = () => {
-    loadConversations()
-  }
+  const handleMessageSent = () => loadConversations()
 
   if (!user) return <Spinner />
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-           style={{ height: 'calc(100vh - 10rem)' }}>
+      <div
+        className="rounded-2xl shadow-sm overflow-hidden border"
+        style={{
+          height: 'calc(100vh - 10rem)',
+          backgroundColor: 'var(--bg-card)',
+          borderColor: 'var(--border)',
+        }}
+      >
         <div className="flex h-full">
-          {/* ── Sidebar: conversation list ─────────────────────────────── */}
+          {/* Sidebar conversazioni */}
           <div
-            className={`w-full sm:w-80 flex-shrink-0 border-r border-gray-100 flex flex-col ${
+            className={`w-full sm:w-80 flex-shrink-0 flex flex-col border-r ${
               mobileShowChat ? 'hidden sm:flex' : 'flex'
             }`}
+            style={{ borderColor: 'var(--border)' }}
           >
-            {/* Sidebar header */}
-            <div className="px-4 py-4 border-b border-gray-100">
-              <h1 className="font-display font-bold text-xl text-gray-900">💬 Messaggi</h1>
-              <p className="text-xs text-gray-400 mt-0.5">
+            <div
+              className="px-4 py-4 border-b"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <h1
+                className="font-display font-bold text-xl"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                💬 Messaggi
+              </h1>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>
                 Solo utenti verificati e collegati
               </p>
             </div>
 
-            {/* List */}
             <div className="flex-1 overflow-y-auto">
               <ConversationList
                 conversations={conversations}
@@ -93,7 +102,7 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* ── Chat window ────────────────────────────────────────────── */}
+          {/* Chat window */}
           <div
             className={`flex-1 flex flex-col ${
               mobileShowChat ? 'flex' : 'hidden sm:flex'
@@ -101,14 +110,13 @@ export default function MessagesPage() {
           >
             {selectedPartner ? (
               <>
-                {/* Mobile back button */}
                 <button
                   onClick={() => setMobileShowChat(false)}
-                  className="sm:hidden flex items-center gap-2 text-sm text-happy-600 px-4 py-2 border-b border-gray-100 font-medium"
+                  className="sm:hidden flex items-center gap-2 text-sm text-happy-600 px-4 py-2 border-b font-medium"
+                  style={{ borderColor: 'var(--border)' }}
                 >
                   ← Indietro
                 </button>
-
                 <ChatWindow
                   partner={selectedPartner}
                   currentUserId={user.id}
@@ -118,16 +126,28 @@ export default function MessagesPage() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <span className="text-6xl mb-4">✉️</span>
-                <h2 className="font-display font-bold text-xl text-gray-700 mb-2">
+                <h2
+                  className="font-display font-bold text-xl mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   I tuoi messaggi
                 </h2>
-                <p className="text-gray-400 text-sm max-w-xs">
+                <p className="text-sm max-w-xs" style={{ color: 'var(--text-muted)' }}>
                   Seleziona una conversazione o vai sul profilo di un utente per
                   iniziare a scrivere.
                 </p>
-                <div className="mt-6 bg-amber-50 rounded-xl p-4 text-left text-sm text-gray-600 max-w-xs">
-                  <p className="font-semibold mb-1">ℹ️ Come funziona?</p>
-                  <ul className="space-y-1 text-xs text-gray-500">
+                <div
+                  className="mt-6 rounded-xl p-4 text-left text-sm max-w-xs border"
+                  style={{
+                    backgroundColor: 'var(--bg-base)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    ℹ️ Come funziona?
+                  </p>
+                  <ul className="space-y-1 text-xs" style={{ color: 'var(--text-muted)' }}>
                     <li>• Entrambi devono essere utenti <strong>verificati</strong></li>
                     <li>• Devono seguirsi <strong>a vicenda</strong></li>
                     <li>• Puoi condividere contenuti e profili</li>
