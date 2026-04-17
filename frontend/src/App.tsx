@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import ExplorePage from './pages/ExplorePage'
-import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import CreateContentPage from './pages/CreateContentPage'
@@ -31,22 +30,22 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/"           element={<ExplorePage />} />
-        <Route path="/home"       element={<PrivateRoute><HomePage /></PrivateRoute>} />
-        <Route path="/feed"       element={<PrivateRoute><FeedPage /></PrivateRoute>} />
-        <Route path="/themes"     element={<ThemesPage />} />
-        <Route path="/search"     element={<SearchPage />} />
-        <Route path="/login"      element={<LoginPage />} />
-        <Route path="/register"   element={<RegisterPage />} />
-        <Route path="/create"     element={<PrivateRoute><CreateContentPage /></PrivateRoute>} />
+        <Route path="/"            element={<ExplorePage />} />
+        <Route path="/home"        element={<PrivateRoute><FeedPage /></PrivateRoute>} />
+        <Route path="/feed"        element={<Navigate to="/home" replace />} />
+        <Route path="/themes"      element={<ThemesPage />} />
+        <Route path="/search"      element={<SearchPage />} />
+        <Route path="/login"       element={<LoginPage />} />
+        <Route path="/register"    element={<RegisterPage />} />
+        <Route path="/create"      element={<PrivateRoute><CreateContentPage /></PrivateRoute>} />
         <Route path="/content/:id" element={<ContentDetailPage />} />
         <Route path="/u/:username" element={<ProfilePage />} />
-        <Route path="/ae/:id"     element={<AlterEgoProfilePage />} />
-        <Route path="/messages"   element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
-        <Route path="/settings"   element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-        <Route path="/alter-egos" element={<PrivateRoute><AlterEgoPage /></PrivateRoute>} />
-        <Route path="/moderation" element={<ModRoute><ModerationPage /></ModRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/ae/:id"      element={<AlterEgoProfilePage />} />
+        <Route path="/messages"    element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+        <Route path="/settings"    element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+        <Route path="/alter-egos"  element={<PrivateRoute><AlterEgoPage /></PrivateRoute>} />
+        <Route path="/moderation"  element={<ModRoute><ModerationPage /></ModRoute>} />
+        <Route path="*"            element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )

@@ -80,7 +80,7 @@ export default function FeedPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display font-bold text-2xl" style={{ color: 'var(--text-primary)' }}>✨ Feed personalizzato</h1>
+        <h1 className="font-display font-bold text-2xl" style={{ color: 'var(--text-primary)' }}>🏠 Il tuo feed</h1>
         <button
           onClick={() => setShowSettings(v => !v)}
           className="text-sm underline transition-colors"
