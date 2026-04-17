@@ -137,7 +137,6 @@ export default function Navbar() {
                     style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
                   >
                     <MenuLink to="/home"                   onClick={() => setMenuOpen(false)} icon="🏠" label="Home" />
-                    <MenuLink to="/feed"                   onClick={() => setMenuOpen(false)} icon="✨" label="Feed personalizzato" />
                     <MenuLink to="/themes"                 onClick={() => setMenuOpen(false)} icon="🏷️" label="Temi" />
                     <MenuLink to={`/u/${user?.username}`}  onClick={() => setMenuOpen(false)} icon="👤" label="Profilo" />
 
