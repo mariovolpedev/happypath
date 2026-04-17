@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { searchAll } from '../api/search'
 import type { SearchResult, SearchType } from '../api/search'
 import ContentCard from '../components/content/ContentCard'
 import Avatar from '../components/common/Avatar'
 import VerifiedBadge from '../components/common/VerifiedBadge'
+import UserHoverCard from '../components/common/UserHoverCard'
 import Spinner from '../components/common/Spinner'
 import { useThemes } from '../hooks/useThemes'
 import { deleteContent } from '../api/content'
@@ -12,19 +13,18 @@ import { deleteContent } from '../api/content'
 type TabType = 'ALL' | SearchType
 
 const TABS: { id: TabType; label: string; emoji: string }[] = [
-  { id: 'ALL', label: 'Tutto', emoji: '✨' },
-  { id: 'CONTENT', label: 'Contenuti', emoji: '📝' },
-  { id: 'USER', label: 'Persone', emoji: '👤' },
+  { id: 'ALL',       label: 'Tutto',     emoji: '✨' },
+  { id: 'CONTENT',   label: 'Contenuti', emoji: '📝' },
+  { id: 'USER',      label: 'Persone',   emoji: '👤' },
   { id: 'ALTER_EGO', label: 'Alter Ego', emoji: '🎭' },
 ]
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
   const initialQ = searchParams.get('q') || ''
 
-  const [query, setQuery] = useState(initialQ)
-  const [tab, setTab] = useState<TabType>('ALL')
+  const [query, setQuery]     = useState(initialQ)
+  const [tab, setTab]         = useState<TabType>('ALL')
   const [themeId, setThemeId] = useState<number | undefined>()
   const [results, setResults] = useState<SearchResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -46,7 +46,6 @@ export default function SearchPage() {
     }
   }, [])
 
-  // Debounce automatico mentre si digita
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
@@ -56,7 +55,6 @@ export default function SearchPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, tab, themeId, doSearch])
 
-  // Carica dalla URL al primo render
   useEffect(() => {
     if (initialQ) doSearch(initialQ, 'ALL', undefined)
   }, [])
@@ -77,8 +75,8 @@ export default function SearchPage() {
     ? results.contents.length + results.users.length + results.alterEgos.length
     : 0
 
-  const showContents = tab === 'ALL' || tab === 'CONTENT'
-  const showUsers = tab === 'ALL' || tab === 'USER'
+  const showContents  = tab === 'ALL' || tab === 'CONTENT'
+  const showUsers     = tab === 'ALL' || tab === 'USER'
   const showAlterEgos = tab === 'ALL' || tab === 'ALTER_EGO'
 
   return (
@@ -114,7 +112,7 @@ export default function SearchPage() {
           ))}
         </div>
 
-        {/* Filtro tema (solo per contenuti) */}
+        {/* Filtro tema */}
         {(tab === 'ALL' || tab === 'CONTENT') && themes.length > 0 && (
           <div className="mt-3">
             <select
@@ -124,16 +122,13 @@ export default function SearchPage() {
             >
               <option value="">🎨 Tutti i temi</option>
               {themes.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.iconEmoji} {t.name}
-                </option>
+                <option key={t.id} value={t.id}>{t.iconEmoji} {t.name}</option>
               ))}
             </select>
           </div>
         )}
       </div>
 
-      {/* Stato ricerca */}
       {loading && <Spinner />}
 
       {!loading && searched && query.trim() && (
@@ -141,15 +136,15 @@ export default function SearchPage() {
           {totalResults === 0 ? (
             <div className="card text-center py-10">
               <p className="text-4xl mb-3">🌱</p>
-              <p className="text-gray-500">
+              <p style={{ color: 'var(--text-muted)' }}>
                 Nessun risultato per <strong>"{query}"</strong>
               </p>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm mt-1" style={{ color: 'var(--text-faint)' }}>
                 Prova con parole diverse o cambia il filtro
               </p>
             </div>
           ) : (
-            <p className="text-sm text-gray-500 px-1">
+            <p className="text-sm px-1" style={{ color: 'var(--text-muted)' }}>
               {totalResults} risultat{totalResults === 1 ? 'o' : 'i'} per{' '}
               <strong>"{query}"</strong>
             </p>
@@ -161,17 +156,24 @@ export default function SearchPage() {
               <h2 className="font-display font-bold text-lg mb-3">👤 Persone</h2>
               <div className="space-y-2">
                 {results.users.map(u => (
-                  <Link
+                  <div
                     key={u.id}
-                    to={`/u/${u.username}`}
                     className="card flex items-center gap-3 hover:shadow-md transition-shadow"
                   >
-                    <Avatar user={u} size="md" />
+                    <Link to={`/u/${u.username}`} className="shrink-0">
+                      <Avatar user={u} size="md" />
+                    </Link>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-gray-800 truncate">
-                          {u.displayName}
-                        </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <UserHoverCard username={u.username} displayName={u.displayName}>
+                          <Link
+                            to={`/u/${u.username}`}
+                            className="font-semibold truncate hover:text-happy-600 transition-colors"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            {u.displayName}
+                          </Link>
+                        </UserHoverCard>
                         {u.verified && <VerifiedBadge />}
                         {u.role !== 'USER' && (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -185,10 +187,10 @@ export default function SearchPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-400 text-sm">@{u.username}</p>
+                      <p className="text-sm" style={{ color: 'var(--text-faint)' }}>@{u.username}</p>
                     </div>
-                    <span className="text-gray-300 text-sm">→</span>
-                  </Link>
+                    <Link to={`/u/${u.username}`} className="text-sm" style={{ color: 'var(--text-faint)' }}>→</Link>
+                  </div>
                 ))}
               </div>
             </section>
@@ -200,33 +202,49 @@ export default function SearchPage() {
               <h2 className="font-display font-bold text-lg mb-3">🎭 Alter Ego</h2>
               <div className="space-y-2">
                 {results.alterEgos.map(ae => (
-                  <Link
+                  <div
                     key={ae.id}
-                    to={`/u/${ae.owner.username}`}
                     className="card flex items-center gap-3 hover:shadow-md transition-shadow"
                   >
-                    {ae.avatarUrl ? (
-                      <img
-                        src={ae.avatarUrl}
-                        alt={ae.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-base">
-                        {ae.name[0].toUpperCase()}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 truncate">{ae.name}</p>
-                      {ae.description && (
-                        <p className="text-gray-400 text-sm truncate">{ae.description}</p>
+                    <Link to={`/ae/${ae.id}`} className="shrink-0">
+                      {ae.avatarUrl ? (
+                        <img
+                          src={ae.avatarUrl}
+                          alt={ae.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-base">
+                          {ae.name[0].toUpperCase()}
+                        </div>
                       )}
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        di @{ae.owner.username}
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={`/ae/${ae.id}`}
+                        className="font-semibold truncate hover:text-happy-600 transition-colors block"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {ae.name}
+                      </Link>
+                      {ae.description && (
+                        <p className="text-sm truncate" style={{ color: 'var(--text-faint)' }}>{ae.description}</p>
+                      )}
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>
+                        di{' '}
+                        <UserHoverCard username={ae.owner.username} displayName={ae.owner.displayName}>
+                          <Link
+                            to={`/u/${ae.owner.username}`}
+                            className="hover:text-happy-600 transition-colors"
+                            style={{ color: 'var(--text-faint)' }}
+                          >
+                            @{ae.owner.username}
+                          </Link>
+                        </UserHoverCard>
                       </p>
                     </div>
-                    <span className="text-gray-300 text-sm">→</span>
-                  </Link>
+                    <Link to={`/ae/${ae.id}`} className="text-sm" style={{ color: 'var(--text-faint)' }}>→</Link>
+                  </div>
                 ))}
               </div>
             </section>
@@ -250,8 +268,8 @@ export default function SearchPage() {
       {!searched && !loading && (
         <div className="card text-center py-12">
           <p className="text-5xl mb-4">🔍</p>
-          <p className="text-gray-500 text-lg font-medium">Cosa stai cercando?</p>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-lg font-medium" style={{ color: 'var(--text-muted)' }}>Cosa stai cercando?</p>
+          <p className="text-sm mt-2" style={{ color: 'var(--text-faint)' }}>
             Digita per cercare contenuti, persone o alter ego
           </p>
           <div className="flex justify-center gap-3 mt-5 flex-wrap">
