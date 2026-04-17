@@ -97,7 +97,7 @@ function VerificationPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-base" style={{ color: 'var(--text-primary)' }}>
-            🪪 Verifica identità
+            🪺 Verifica identità
           </h3>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Ottieni la spunta blu inviando i tuoi dati anagrafici.
@@ -472,14 +472,26 @@ export default function ProfilePage() {
         {isMe && !profile.verified && <VerificationPanel />}
 
         {/* ── Tab bar ── */}
-        <div className="flex gap-1 bg-white rounded-2xl border border-gray-100 p-1 shadow-sm">
+        <div
+          className="flex gap-1 rounded-2xl p-1"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 1px 3px oklch(0.2 0.01 80 / 0.06)',
+          }}
+        >
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => handleTabChange(t.key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-colors ${
-                activeTab === t.key ? 'bg-happy-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
-              }`}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-colors"
+              style={
+                activeTab === t.key
+                  ? { backgroundColor: 'var(--color-primary, #22c55e)', color: '#fff', boxShadow: '0 1px 4px oklch(0.4 0.1 150 / 0.2)' }
+                  : { color: 'var(--text-muted)', backgroundColor: 'transparent' }
+              }
+              onMouseEnter={e => { if (activeTab !== t.key) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--bg-offset)' }}
+              onMouseLeave={e => { if (activeTab !== t.key) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
             >
               <span style={{ fontSize: '14px' }}>{t.emoji}</span>
               {t.label}
