@@ -39,7 +39,7 @@ export default function FeedPage() {
     if (!settings) return
     setSavingSettings(true)
     try {
-      const updated = await updateFeedSettings({ sortStrategy: strategy })
+      const updated = await updateFeedSettings({ ...settings, sortStrategy: strategy })
       setSettings(updated)
       load(0)
     } finally { setSavingSettings(false) }
@@ -49,7 +49,7 @@ export default function FeedPage() {
     if (!settings) return
     setSavingSettings(true)
     try {
-      const updated = await updateFeedSettings({ [key]: !settings[key] })
+      const updated = await updateFeedSettings({ ...settings, [key]: !settings[key] })
       setSettings(updated)
       load(0)
     } finally { setSavingSettings(false) }
