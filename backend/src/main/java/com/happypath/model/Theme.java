@@ -2,6 +2,9 @@ package com.happypath.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "themes")
@@ -19,4 +22,15 @@ public class Theme {
     private String description;
 
     private String iconEmoji;
+
+    /**
+     * Se true, il tema fa parte dei predefiniti di sistema e non può essere eliminato.
+     * I temi predefiniti vengono caricati via data.sql al primo avvio.
+     */
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean preset = false;
+
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 }
