@@ -9,27 +9,31 @@ export default function ThemesPage() {
   const { isAuthenticated } = useAuthStore()
   const authed = isAuthenticated()
 
-  const [themes, setThemes]     = useState<ThemeResponse[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [tab, setTab]           = useState<'all' | 'preset' | 'custom'>('all')
-  const [search, setSearch]     = useState('')
+  const [themes, setThemes]         = useState<ThemeResponse[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [tab, setTab]               = useState<'all' | 'preset' | 'custom'>('all')
+  const [search, setSearch]         = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm]         = useState({ name: '', description: '', iconEmoji: '' })
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [form, setForm]             = useState({ name: '', description: '', iconEmoji: '' })
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
     try {
-      const data = await getAllThemes(0, 100)
-      setThemes(data.content)
-    } finally { setLoading(false) }
+      const data = await getAllThemes()
+      setThemes(data)          // backend returns plain array
+    } catch {
+      setThemes([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
 
   const filtered = themes.filter(t => {
-    const matchesTab = tab === 'all' || (tab === 'preset' ? t.preset : !t.preset)
+    const matchesTab    = tab === 'all' || (tab === 'preset' ? t.preset : !t.preset)
     const matchesSearch = t.name.toLowerCase().includes(search.toLowerCase())
     return matchesTab && matchesSearch
   })
@@ -63,7 +67,9 @@ export default function ThemesPage() {
       setShowCreate(false)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Errore durante la creazione')
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -125,7 +131,9 @@ export default function ThemesPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === t ? 'bg-hp-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                tab === t
+                  ? 'bg-hp-primary text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {t === 'all' ? 'Tutti' : t === 'preset' ? '⭐ Predefiniti' : '👤 Custom'}
@@ -138,12 +146,19 @@ export default function ThemesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filtered.map(theme => (
             <div key={theme.id} className="card flex items-start justify-between gap-3">
-              <Link to={`/explore?theme=${theme.id}`} className="flex items-start gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+              <Link
+                to={`/explore?theme=${theme.id}`}
+                className="flex items-start gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+              >
                 <span className="text-2xl flex-shrink-0">{theme.iconEmoji || '🏷️'}</span>
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-800 truncate">
                     {theme.name}
-                    {theme.preset && <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">preset</span>}
+                    {theme.preset && (
+                      <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                        preset
+                      </span>
+                    )}
                   </p>
                   {theme.description && (
                     <p className="text-sm text-gray-500 line-clamp-1">{theme.description}</p>

@@ -1,14 +1,14 @@
 import api from './client'
-import type { ThemeResponse, Page } from '../types'
+import type { ThemeResponse } from '../types'
 
-export const getAllThemes     = (page = 0, size = 30) =>
-  api.get<Page<ThemeResponse>>('/themes', { params: { page, size } }).then(r => r.data)
+export const getAllThemes     = () =>
+  api.get<ThemeResponse[]>('/themes').then(r => r.data)
 
-export const getPresetThemes  = (page = 0, size = 30) =>
-  api.get<Page<ThemeResponse>>('/themes/presets', { params: { page, size } }).then(r => r.data)
+export const getPresetThemes  = () =>
+  api.get<ThemeResponse[]>('/themes/presets').then(r => r.data)
 
-export const getCustomThemes  = (page = 0, size = 30) =>
-  api.get<Page<ThemeResponse>>('/themes/custom', { params: { page, size } }).then(r => r.data)
+export const getCustomThemes  = () =>
+  api.get<ThemeResponse[]>('/themes/custom').then(r => r.data)
 
 export const getMyThemes      = () =>
   api.get<ThemeResponse[]>('/themes/me').then(r => r.data)
