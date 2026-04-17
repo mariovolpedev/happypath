@@ -5,17 +5,39 @@ import Spinner from '../components/common/Spinner'
 import { useAuthStore } from '../store/authStore'
 import { Link } from 'react-router-dom'
 
-const EMOJI_LIST = [
-  '🎭','🎨','🎬','🎤','🎧','🎸','🎹','🎺','🎻','🥁',
-  '📚','📖','✏️','🖊️','📝','📰','🗞️','📓','📔','📒',
-  '🌍','🌊','🌈','🌸','🌻','🍀','🌴','🌵','🦋','🐬',
-  '🚀','✈️','🏔️','🏖️','🏙️','🗺️','🧭','🏕️','🌌','🌠',
-  '💡','🔬','🔭','⚗️','🧪','🤖','💻','📱','🎮','🕹️',
-  '🍕','🍣','🍜','🍩','☕','🍷','🎂','🥗','🌮','🧁',
-  '⚽','🏀','🎯','🏋️','🧘','🤸','🏄','🎾','🥊','🏆',
-  '❤️','💜','💙','💛','🗜️','🤍','💚','🧡','💗','💫',
-  '🦁','🐶','🐱','🦊','🐻','🐼','🦄','🐉','🦅','🐺',
-  '🎃','🎄','🎆','🎇','🧨','🎊','🎋','🎍','🎎','🎏',
+const EMOJI_SECTIONS = [
+  {
+    label: '🎨 Arte & Musica',
+    emojis: ['🎭','🎨','🎬','🎤','🎧','🎸','🎹','🎺','🎻','🥁','🎼','🎵','🎶','🎷','🪘'],
+  },
+  {
+    label: '📚 Lettura & Scrittura',
+    emojis: ['📚','📖','✏️','🖊️','📝','📰','🗞️','📓','📔','📒','💼','📌','📎','🔖','💬'],
+  },
+  {
+    label: '🌍 Natura & Viaggi',
+    emojis: ['🌍','🌊','🌈','🌸','🌻','🍀','🌴','🌵','🦋','🐬','🏔️','🏖️','🌌','🌠','☃️'],
+  },
+  {
+    label: '🚀 Tech & Scienza',
+    emojis: ['🚀','✈️','💡','🔬','🔭','⚗️','🧪','🤖','💻','📱','🎮','🕹️','🧭','📷','📡'],
+  },
+  {
+    label: '🍕 Cibo & Bevande',
+    emojis: ['🍕','🍣','🍜','🍩','☕','🍷','🎂','🥗','🌮','🧁','🍯','🍰','🍺','🥝','🍎'],
+  },
+  {
+    label: '⚽ Sport & Fitness',
+    emojis: ['⚽','🏀','🎯','🏋️','🧘','🤸','🏄','🎾','🥊','🏆','🏊','🚴','🏌️','🤼','🏂'],
+  },
+  {
+    label: '❤️ Sentimenti',
+    emojis: ['❤️','💜','💙','💛','💚','🧡','💗','💫','👏','🙏','🤍','🤗','😍','🤩','🙂'],
+  },
+  {
+    label: '🦁 Animali',
+    emojis: ['🦁','🐶','🐱','🦊','🐻','🐼','🦄','🐉','🦅','🐺','🐮','🐢','🦇','🐧','🦌'],
+  },
 ]
 
 export default function ThemesPage() {
@@ -44,15 +66,10 @@ export default function ThemesPage() {
 
   const load = async () => {
     setLoading(true)
-    try {
-      setThemes(await getAllThemes())
-    } catch {
-      setThemes([])
-    } finally {
-      setLoading(false)
-    }
+    try { setThemes(await getAllThemes()) }
+    catch { setThemes([]) }
+    finally { setLoading(false) }
   }
-
   useEffect(() => { load() }, [])
 
   const filtered = themes.filter(t => {
@@ -74,8 +91,7 @@ export default function ThemesPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name.trim()) return
-    setSaving(true)
-    setError(null)
+    setSaving(true); setError(null)
     try {
       const created = await createTheme({
         name: form.name.trim(),
@@ -87,9 +103,7 @@ export default function ThemesPage() {
       setShowCreate(false)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Errore durante la creazione')
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   return (
@@ -114,37 +128,49 @@ export default function ThemesPage() {
               <button
                 type="button"
                 onClick={() => setShowPicker(v => !v)}
-                className="w-14 h-10 text-2xl flex items-center justify-center rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors"
+                className="w-14 h-10 text-2xl flex items-center justify-center rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors select-none"
                 title="Scegli emoji"
               >
                 {form.iconEmoji || '🏷️'}
               </button>
 
               {showPicker && (
-                <div className="absolute z-50 top-12 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 w-64">
-                  <p className="text-xs text-gray-400 mb-2 px-1">Scegli un'icona</p>
-                  <div className="grid grid-cols-10 gap-0.5 max-h-48 overflow-y-auto">
-                    {EMOJI_LIST.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => { setForm(f => ({ ...f, iconEmoji: emoji })); setShowPicker(false) }}
-                        className={`text-xl p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                          form.iconEmoji === emoji ? 'bg-hp-primary/10 ring-1 ring-hp-primary' : ''
-                        }`}
-                      >
-                        {emoji}
-                      </button>
+                <div className="absolute z-50 top-12 left-0 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden">
+                  <div className="overflow-y-auto max-h-72 p-3 space-y-4">
+                    {EMOJI_SECTIONS.map(section => (
+                      <div key={section.label}>
+                        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1.5 px-1">
+                          {section.label}
+                        </p>
+                        <div className="grid grid-cols-10 gap-0.5">
+                          {section.emojis.map(emoji => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => { setForm(f => ({ ...f, iconEmoji: emoji })); setShowPicker(false) }}
+                              className={`text-xl leading-none p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                                form.iconEmoji === emoji
+                                  ? 'bg-hp-primary/10 ring-1 ring-inset ring-hp-primary'
+                                  : ''
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                   {form.iconEmoji && (
-                    <button
-                      type="button"
-                      onClick={() => { setForm(f => ({ ...f, iconEmoji: '' })); setShowPicker(false) }}
-                      className="mt-2 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      Rimuovi icona
-                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700 px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => { setForm(f => ({ ...f, iconEmoji: '' })); setShowPicker(false) }}
+                        className="w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors py-1"
+                      >
+                        Rimuovi icona
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
