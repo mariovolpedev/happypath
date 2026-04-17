@@ -1,9 +1,11 @@
 package com.happypath.service;
 
+import com.happypath.config.RedisConfig;
 import com.happypath.dto.response.*;
 import com.happypath.model.User;
 import com.happypath.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,22 @@ public class SearchService {
     private final UserService        userService;
     private final AlterEgoService    alterEgoService;
 
+    /**
+     * Ricerca full-text — cachata 2 minuti.
+     *
+     * La chiave è costruita su (query, type, themeId) ignorando l'utente
+     * autenticato. Questo è sicuro perché SearchService restituisce dati
+     * pubblici (titoli, username, alter ego) non sensibili al contesto utente.
+     *
+     * Il TTL breve (2 min) mitiga il rischio di risultati stantii su
+     * contenuti appena creati o eliminati.
+     *
+     * NON cachechiamo ricerche vuote (unless condition).
+     */
+    @Cacheable(
+            value = RedisConfig.CACHE_SEARCH_RESULTS,
+            key = "(#q ?: '') + ':' + (#type ?: 'ALL') + ':' + (#themeId ?: 0)",
+            unless = "#q == null || #q.isBlank()")
     public SearchResultResponse search(
             String q, String type, Long themeId, User currentUser) {
         if (q == null || q.isBlank())
