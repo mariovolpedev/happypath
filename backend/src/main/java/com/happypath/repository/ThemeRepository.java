@@ -8,4 +8,5 @@ import java.util.List;
 public interface ThemeRepository extends JpaRepository<Theme, Long> {
     List<Theme> findByPresetTrue();
     List<Theme> findByPresetFalse();
+    boolean existsByNameIgnoreCase(String name);
 }

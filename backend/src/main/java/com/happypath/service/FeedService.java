@@ -7,6 +7,7 @@ import com.happypath.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -33,12 +34,17 @@ public class FeedService {
     private final ReactionRepository reactionRepository;
     private final FeedSettingsRepository feedSettingsRepository;
 
+    @Transactional(readOnly = true)
     public List<FeedItemResponse> getFeed(String username, int page, int size) {
         User me = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         FeedSettings settings = feedSettingsRepository.findByUser(me)
                 .orElseGet(() -> FeedSettings.builder().user(me).build());
+
+        // Guard: se sortStrategy è null (record non ancora persistito) usa SMART
+        FeedSortStrategy strategy = settings.getSortStrategy() != null
+                ? settings.getSortStrategy() : FeedSortStrategy.SMART;
 
         List<User> followedUsers = followRepository.findByFollower(me)
                 .stream().map(Follow::getFollowed).toList();
@@ -48,10 +54,20 @@ public class FeedService {
         List<FeedItemResponse> items = new ArrayList<>();
 
         if (settings.isShowContents() && (!followedUsers.isEmpty() || !followedThemeIds.isEmpty())) {
-            contentRepository.findByAuthorsOrThemeIdsAndStatus(
-                            followedUsers, followedThemeIds, ContentStatus.ACTIVE,
-                            PageRequest.of(0, FEED_RAW_LIMIT))
-                    .forEach(c -> items.add(buildContentItem(c)));
+            List<Content> contents = contentRepository.findByAuthorsOrThemeIdsAndStatus(
+                    followedUsers, followedThemeIds, ContentStatus.ACTIVE,
+                    PageRequest.of(0, FEED_RAW_LIMIT)).getContent();
+
+            // Bulk COUNT per reactions e comments — zero lazy-load
+            List<Long> contentIds = contents.stream().map(Content::getId).toList();
+            Map<Long, Long> reactionCounts = contentRepository.countReactionsByContentIds(contentIds);
+            Map<Long, Long> commentCounts  = contentRepository.countCommentsByContentIds(contentIds);
+            Map<Long, Map<String, Long>> reactionsByType = contentRepository.countReactionsByTypeForContentIds(contentIds);
+
+            contents.forEach(c -> items.add(buildContentItem(c,
+                    reactionCounts.getOrDefault(c.getId(), 0L),
+                    commentCounts.getOrDefault(c.getId(), 0L),
+                    reactionsByType.getOrDefault(c.getId(), Map.of()))));
         }
 
         if (settings.isShowComments() && !followedUsers.isEmpty()) {
@@ -70,15 +86,11 @@ public class FeedService {
                     .forEach(f -> items.add(buildFollowItem(f)));
         }
 
-        List<FeedItemResponse> sorted = sortItems(items, settings.getSortStrategy());
-
-        int from = page * size;
-        int to = Math.min(from + size, sorted.size());
-        if (from >= sorted.size()) return List.of();
-        return sorted.subList(from, to);
+        return paginate(sortItems(items, strategy), page, size);
     }
 
     private List<FeedItemResponse> sortItems(List<FeedItemResponse> items, FeedSortStrategy strategy) {
+        if (strategy == null) strategy = FeedSortStrategy.SMART;
         return switch (strategy) {
             case RECENT -> items.stream()
                     .sorted(Comparator.comparing(FeedItemResponse::eventAt).reversed())
@@ -94,21 +106,46 @@ public class FeedService {
         };
     }
 
-    private FeedItemResponse buildContentItem(Content c) {
+    private List<FeedItemResponse> paginate(List<FeedItemResponse> sorted, int page, int size) {
+        int from = page * size;
+        if (from >= sorted.size()) return List.of();
+        return sorted.subList(from, Math.min(from + size, sorted.size()));
+    }
+
+    private FeedItemResponse buildContentItem(Content c, long reactions, long comments, Map<String, Long> byType) {
         return new FeedItemResponse(FeedItem.CONTENT, toUserSummary(c.getAuthor()),
-                toContentResponse(c), null, null, null, c.getCreatedAt(),
-                smartScore(FeedItem.CONTENT, c.getCreatedAt()));
+                toContentResponse(c, reactions, comments, byType), null, null, null,
+                c.getCreatedAt(), smartScore(FeedItem.CONTENT, c.getCreatedAt()));
     }
 
     private FeedItemResponse buildCommentItem(Comment c) {
+        // Per i commenti nel feed recuperiamo solo titolo/id del content — no lazy collection
+        Content parent = c.getContent();
+        long reactions = 0L, comments = 0L;
+        Map<String, Long> byType = Map.of();
+        if (parent != null) {
+            List<Long> ids = List.of(parent.getId());
+            reactions = contentRepository.countReactionsByContentIds(ids).getOrDefault(parent.getId(), 0L);
+            comments  = contentRepository.countCommentsByContentIds(ids).getOrDefault(parent.getId(), 0L);
+        }
         return new FeedItemResponse(FeedItem.COMMENT, toUserSummary(c.getAuthor()),
-                toContentResponse(c.getContent()), toCommentResponse(c), null, null,
+                toContentResponse(parent, reactions, comments, byType),
+                toCommentResponse(c), null, null,
                 c.getCreatedAt(), smartScore(FeedItem.COMMENT, c.getCreatedAt()));
     }
 
     private FeedItemResponse buildReactionItem(Reaction r) {
+        Content parent = r.getContent();
+        long reactions = 0L, comments = 0L;
+        Map<String, Long> byType = Map.of();
+        if (parent != null) {
+            List<Long> ids = List.of(parent.getId());
+            reactions = contentRepository.countReactionsByContentIds(ids).getOrDefault(parent.getId(), 0L);
+            comments  = contentRepository.countCommentsByContentIds(ids).getOrDefault(parent.getId(), 0L);
+        }
         return new FeedItemResponse(FeedItem.REACTION, toUserSummary(r.getUser()),
-                toContentResponse(r.getContent()), null, r.getType().name(), null,
+                toContentResponse(parent, reactions, comments, byType),
+                null, r.getType().name(), null,
                 r.getCreatedAt(), smartScore(FeedItem.REACTION, r.getCreatedAt()));
     }
 
@@ -132,12 +169,8 @@ public class FeedService {
                 u.getAvatarUrl(), u.getRole(), u.isVerified());
     }
 
-    private ContentResponse toContentResponse(Content c) {
+    private ContentResponse toContentResponse(Content c, long reactions, long comments, Map<String, Long> byType) {
         if (c == null) return null;
-        long reactions = c.getReactions().size();
-        long comments = c.getComments().size();
-        Map<String, Long> byType = c.getReactions().stream()
-                .collect(Collectors.groupingBy(r -> r.getType().name(), Collectors.counting()));
         ThemeResponse theme = c.getTheme() == null ? null
                 : new ThemeResponse(
                         c.getTheme().getId(), c.getTheme().getName(),
@@ -153,13 +186,9 @@ public class FeedService {
     private CommentResponse toCommentResponse(Comment c) {
         if (c == null) return null;
         return new CommentResponse(
-                c.getId(),
-                c.getText(),
-                toUserSummary(c.getAuthor()),
-                null,  // alterEgo — non esposto nel feed
+                c.getId(), c.getText(), toUserSummary(c.getAuthor()),
+                null,
                 c.getParent() != null ? c.getParent().getId() : null,
-                c.getStatus(),
-                c.getCreatedAt()
-        );
+                c.getStatus(), c.getCreatedAt());
     }
 }

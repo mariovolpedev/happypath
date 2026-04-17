@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,38 +27,33 @@ public class ThemeService {
     private final ThemeFollowRepository themeFollowRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
     public List<ThemeResponse> getAll(String currentUsername) {
-        User me = currentUsername != null ? userRepository.findByUsername(currentUsername).orElse(null) : null;
-        return themeRepository.findAll().stream()
-                .map(t -> toResponse(t, me))
-                .toList();
+        return toResponseList(themeRepository.findAll(), currentUsername);
     }
 
+    @Transactional(readOnly = true)
     public List<ThemeResponse> getPresets(String currentUsername) {
-        User me = currentUsername != null ? userRepository.findByUsername(currentUsername).orElse(null) : null;
-        return themeRepository.findByPresetTrue().stream()
-                .map(t -> toResponse(t, me))
-                .toList();
+        return toResponseList(themeRepository.findByPresetTrue(), currentUsername);
     }
 
+    @Transactional(readOnly = true)
     public List<ThemeResponse> getCustom(String currentUsername) {
-        User me = currentUsername != null ? userRepository.findByUsername(currentUsername).orElse(null) : null;
-        return themeRepository.findByPresetFalse().stream()
-                .map(t -> toResponse(t, me))
-                .toList();
+        return toResponseList(themeRepository.findByPresetFalse(), currentUsername);
     }
 
+    @Transactional(readOnly = true)
     public List<ThemeResponse> getFollowedByMe(String username) {
         User me = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return themeFollowRepository.findByUser(me).stream()
-                .map(tf -> toResponse(tf.getTheme(), me))
-                .toList();
+        List<Theme> themes = themeFollowRepository.findByUser(me)
+                .stream().map(ThemeFollow::getTheme).toList();
+        return toResponseList(themes, username);
     }
 
     @Transactional
     public ThemeResponse create(ThemeCreateRequest req, String currentUsername) {
-        if (themeRepository.findAll().stream().anyMatch(t -> t.getName().equalsIgnoreCase(req.name()))) {
+        if (themeRepository.existsByNameIgnoreCase(req.name())) {
             throw new ConflictException("Theme name already exists");
         }
         User me = userRepository.findByUsername(currentUsername)
@@ -68,7 +66,10 @@ public class ThemeService {
                         .preset(false)
                         .build()
         );
-        return toResponse(saved, me);
+        // single-theme response: no bulk needed
+        boolean followedByMe = themeFollowRepository.existsByUserAndTheme(me, saved);
+        long followersCount = themeFollowRepository.countByTheme(saved);
+        return toResponse(saved, followersCount, followedByMe);
     }
 
     @Transactional
@@ -94,9 +95,46 @@ public class ThemeService {
         themeFollowRepository.delete(tf);
     }
 
-    private ThemeResponse toResponse(Theme t, User me) {
-        boolean followedByMe = me != null && themeFollowRepository.existsByUserAndTheme(me, t);
-        long followersCount = themeFollowRepository.countByTheme(t);
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Costruisce la lista di ThemeResponse con una sola query per i conteggi
+     * e una sola query per i follow dell'utente corrente — zero loop N+1.
+     */
+    private List<ThemeResponse> toResponseList(List<Theme> themes, String currentUsername) {
+        if (themes.isEmpty()) return List.of();
+
+        // 1. Conteggi follower: una query GROUP BY
+        Map<Long, Long> followerCounts = themeFollowRepository
+                .countFollowersByThemes(themes)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
+        // 2. Temi seguiti dall'utente: una query IN
+        Set<Long> followedIds;
+        if (currentUsername != null) {
+            User me = userRepository.findByUsername(currentUsername).orElse(null);
+            followedIds = me == null ? Set.of()
+                    : Set.copyOf(themeFollowRepository.findFollowedThemeIdsAmong(me, themes));
+        } else {
+            followedIds = Set.of();
+        }
+
+        return themes.stream()
+                .map(t -> toResponse(
+                        t,
+                        followerCounts.getOrDefault(t.getId(), 0L),
+                        followedIds.contains(t.getId())
+                ))
+                .toList();
+    }
+
+    private ThemeResponse toResponse(Theme t, long followersCount, boolean followedByMe) {
         return new ThemeResponse(
                 t.getId(),
                 t.getName(),
