@@ -2,7 +2,6 @@ package com.happypath.repository;
 
 import com.happypath.model.Content;
 import com.happypath.model.Reaction;
-import com.happypath.model.ReactionType;
 import com.happypath.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +14,10 @@ public interface ReactionRepository extends JpaRepository<Reaction, Long> {
 
     List<Reaction> findByContent(Content content);
 
+    /** Usato da ReactionService */
+    Optional<Reaction> findByUserAndContent(User user, Content content);
+
+    /** Usato da ContentService */
     Optional<Reaction> findByContentAndUser(Content content, User user);
 
     boolean existsByContentAndUser(Content content, User user);
