@@ -13,6 +13,8 @@ import MessagesPage from './pages/MessagesPage'
 import SettingsPage from './pages/SettingsPage'
 import AlterEgoPage from './pages/AlterEgoPage'
 import AlterEgoProfilePage from './pages/AlterEgoProfilePage'
+import ThemesPage from './pages/ThemesPage'
+import FeedPage from './pages/FeedPage'
 import { useAuthStore } from './store/authStore'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -31,6 +33,8 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/"           element={<ExplorePage />} />
         <Route path="/home"       element={<PrivateRoute><HomePage /></PrivateRoute>} />
+        <Route path="/feed"       element={<PrivateRoute><FeedPage /></PrivateRoute>} />
+        <Route path="/themes"     element={<ThemesPage />} />
         <Route path="/search"     element={<SearchPage />} />
         <Route path="/login"      element={<LoginPage />} />
         <Route path="/register"   element={<RegisterPage />} />
