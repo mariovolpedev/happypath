@@ -1,11 +1,14 @@
 package com.happypath.service;
 
+import com.happypath.config.RedisConfig;
 import com.happypath.dto.request.ContentRequest;
 import com.happypath.dto.response.*;
 import com.happypath.exception.HappyPathException;
 import com.happypath.model.*;
 import com.happypath.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -39,6 +42,10 @@ public class ContentService {
                         new HappyPathException("Contenuto non trovato", HttpStatus.NOT_FOUND));
     }
 
+    // -------------------------------------------------------------------------
+    // Mutazioni — invalidano la cache del singolo contenuto
+    // -------------------------------------------------------------------------
+
     @Transactional
     public ContentResponse create(ContentRequest req, User author) {
         Content.ContentBuilder builder = Content.builder()
@@ -66,11 +73,12 @@ public class ContentService {
         }
 
         Content content = contentRepository.save(builder.build());
-        // single item — query dirette vanno bene
+        // Nuovo contenuto: invalidiamo la cache di search che potrebbe restituire risultati stantii
         return toResponseSingle(content, author);
     }
 
     @Transactional
+    @CacheEvict(value = RedisConfig.CACHE_CONTENT_SINGLE, key = "#id")
     public ContentResponse update(Long id, ContentRequest req, User user) {
         Content content = findById(id);
         if (!content.getAuthor().getId().equals(user.getId()) && !isModeratorOrAdmin(user))
@@ -86,6 +94,7 @@ public class ContentService {
     }
 
     @Transactional
+    @CacheEvict(value = RedisConfig.CACHE_CONTENT_SINGLE, key = "#contentId")
     public ContentResponse changePublisher(Long contentId, User requester, Long alterEgoId) {
         Content content = findById(contentId);
         if (!content.getAuthor().getId().equals(requester.getId()))
@@ -109,6 +118,7 @@ public class ContentService {
     }
 
     @Transactional
+    @CacheEvict(value = RedisConfig.CACHE_CONTENT_SINGLE, key = "#id")
     public void delete(Long id, User user) {
         Content content = findById(id);
         if (!content.getAuthor().getId().equals(user.getId()) && !isModeratorOrAdmin(user))
@@ -121,6 +131,12 @@ public class ContentService {
     // Read — tutti usano mapPage() per zero N+1
     // -------------------------------------------------------------------------
 
+    /**
+     * Il feed (home e globale) NON viene cachato:
+     * - è personalizzato per utente
+     * - è altamente dinamico (nuovi post appaiono continuamente)
+     * - un TTL anche breve causerebbe incoerenze evidenti
+     */
     @Transactional(readOnly = true)
     public Page<ContentResponse> getFeed(Pageable pageable, User currentUser) {
         Page<Content> page = currentUser != null
@@ -161,7 +177,19 @@ public class ContentService {
                 null);
     }
 
+    /**
+     * GET /contents/{id} — cachato per 10 minuti.
+     *
+     * La chiave è solo l'id numerico: il campo myReaction dipende dall'utente
+     * autenticato, quindi NON è inclusa nella cache. Il frontend deve gestire
+     * separatamente lo stato della propria reazione se necessario.
+     *
+     * Alternativa sicura: cachechiave = "#id" restituisce la versione
+     * "pubblica" del contenuto (myReaction = null). Se si vuole per-user,
+     * estendere la chiave con "#currentUser?.id" ma attenzione alla memoria.
+     */
     @Transactional(readOnly = true)
+    @Cacheable(value = RedisConfig.CACHE_CONTENT_SINGLE, key = "#id", unless = "#result == null")
     public ContentResponse getOne(Long id, User currentUser) {
         Content content = findById(id);
         if (content.getStatus() == ContentStatus.DELETED)
@@ -173,13 +201,6 @@ public class ContentService {
     // Helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Mappa una Page<Content> in Page<ContentResponse> con 3+1 query bulk:
-     *   1. countReactionsByContentIds   (GROUP BY content_id)
-     *   2. countReactionsByTypeForContentIds  (GROUP BY content_id, type)
-     *   3. countCommentsByContentIds    (GROUP BY content_id)
-     *   4. findByContentIdsAndUser      (myReaction — solo se utente loggato)
-     */
     private Page<ContentResponse> mapPage(Page<Content> page, User currentUser) {
         List<Content> contents = page.getContent();
         if (contents.isEmpty()) return page.map(c -> toResponseSingle(c, currentUser));
@@ -190,7 +211,6 @@ public class ContentService {
         Map<Long, Long>              commentTotals  = contentRepository.countCommentsByContentIds(ids);
         Map<Long, Map<String, Long>> byType         = contentRepository.countReactionsByTypeForContentIds(ids);
 
-        // myReaction: una sola query IN per tutti gli id
         Map<Long, String> myReactions = Map.of();
         if (currentUser != null) {
             myReactions = reactionRepository.findByContentIdsAndUser(ids, currentUser)
@@ -213,7 +233,6 @@ public class ContentService {
         return new PageImpl<>(mapped, page.getPageable(), page.getTotalElements());
     }
 
-    /** Usato per operazioni su singolo item (create/update/getOne) dove N+1 non è un problema. */
     public ContentResponse toResponseSingle(Content c, User currentUser) {
         List<Long> ids = List.of(c.getId());
         long reactions   = contentRepository.countReactionsByContentIds(ids).getOrDefault(c.getId(), 0L);
@@ -226,7 +245,6 @@ public class ContentService {
         return toResponse(c, reactions, comments, byType, myReaction);
     }
 
-    /** Costruisce il DTO senza toccare nessuna lazy collection. */
     private ContentResponse toResponse(Content c, long reactions, long comments,
                                        Map<String, Long> byType, String myReaction) {
         AlterEgoResponse aeResp = c.getAlterEgo() != null
@@ -245,11 +263,6 @@ public class ContentService {
                 List.of(), c.getCreatedAt(), c.getUpdatedAt());
     }
 
-    // -------------------------------------------------------------------------
-    // Utility
-    // -------------------------------------------------------------------------
-
-    /** Mantenuto per retrocompatibilità con altri service che lo chiamano (es. FeedService). */
     public ContentResponse toResponse(Content c, User currentUser) {
         return toResponseSingle(c, currentUser);
     }

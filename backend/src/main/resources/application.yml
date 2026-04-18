@@ -22,6 +22,19 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 2000ms
+      connect-timeout: 1000ms
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000   # 10 minuti default (override per cache specifiche in RedisConfig)
+      cache-null-values: false
+
   servlet:
     multipart:
       max-file-size: 10MB
@@ -57,23 +70,3 @@ happypath:
     refresh-expiration-ms: 604800000  # 7 giorni
 #  cors:
 #    allowed-origins: "http://localhost:5173,http://localhost:3000"
-
-#---
-#spring:
-#  config:
-#    activate:
-#      on-profile: dev
-#  datasource:
-#    url: jdbc:h2:mem:happypath_dev
-#    username: sa
-#    password:
-#    driver-class-name: org.h2.Driver
-#  h2:
-#    console:
-#      enabled: true
-#  jpa:
-#    hibernate:
-#      ddl-auto: create-drop
-#    properties:
-#      hibernate:
-#        dialect: org.hibernate.dialect.H2Dialect

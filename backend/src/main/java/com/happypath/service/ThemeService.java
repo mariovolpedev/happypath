@@ -1,5 +1,6 @@
 package com.happypath.service;
 
+import com.happypath.config.RedisConfig;
 import com.happypath.dto.request.ThemeCreateRequest;
 import com.happypath.dto.response.ThemeResponse;
 import com.happypath.exception.ConflictException;
@@ -11,6 +12,9 @@ import com.happypath.repository.ThemeFollowRepository;
 import com.happypath.repository.ThemeRepository;
 import com.happypath.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,23 +31,39 @@ public class ThemeService {
     private final ThemeFollowRepository themeFollowRepository;
     private final UserRepository userRepository;
 
+    /**
+     * Lista completa temi — cachata 60 min.
+     * La chiave contiene lo username perché il campo followedByMe è user-specific.
+     * Se currentUsername è null (utente anonimo) la chiave è "anon".
+     */
     @Transactional(readOnly = true)
+    @Cacheable(value = RedisConfig.CACHE_THEMES_ALL,
+               key = "#currentUsername != null ? #currentUsername : 'anon'")
     public List<ThemeResponse> getAll(String currentUsername) {
         return toResponseList(themeRepository.findAll(), currentUsername);
     }
 
+    /**
+     * Solo temi preset — cachata 60 min.
+     * I preset sono quasi immutabili, TTL lungo è sicuro.
+     */
     @Transactional(readOnly = true)
+    @Cacheable(value = RedisConfig.CACHE_THEMES_PRESETS,
+               key = "#currentUsername != null ? #currentUsername : 'anon'")
     public List<ThemeResponse> getPresets(String currentUsername) {
         return toResponseList(themeRepository.findByPresetTrue(), currentUsername);
     }
 
     @Transactional(readOnly = true)
     public List<ThemeResponse> getCustom(String currentUsername) {
+        // Temi custom creati dagli utenti: non cachati perché cambiano con
+        // ogni create/follow/unfollow e la lista è tipicamente breve.
         return toResponseList(themeRepository.findByPresetFalse(), currentUsername);
     }
 
     @Transactional(readOnly = true)
     public List<ThemeResponse> getFollowedByMe(String username) {
+        // Lista personale: non cachata (mutable, per-user, poco costosa)
         User me = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         List<Theme> themes = themeFollowRepository.findByUser(me)
@@ -51,7 +71,16 @@ public class ThemeService {
         return toResponseList(themes, username);
     }
 
+    /**
+     * Creazione tema: invalida le cache themes-all (tutti gli username)
+     * e themes-presets, che ora includerebbero un conteggio obsoleto.
+     * Usiamo allEntries=true perché la chiave dipende dallo username.
+     */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.CACHE_THEMES_ALL,     allEntries = true),
+            @CacheEvict(value = RedisConfig.CACHE_THEMES_PRESETS, allEntries = true)
+    })
     public ThemeResponse create(ThemeCreateRequest req, String currentUsername) {
         if (themeRepository.existsByNameIgnoreCase(req.name())) {
             throw new ConflictException("Theme name already exists");
@@ -66,13 +95,20 @@ public class ThemeService {
                         .preset(false)
                         .build()
         );
-        // single-theme response: no bulk needed
         boolean followedByMe = themeFollowRepository.existsByUserAndTheme(me, saved);
         long followersCount = themeFollowRepository.countByTheme(saved);
         return toResponse(saved, followersCount, followedByMe);
     }
 
+    /**
+     * Follow/unfollow: il campo followedByMe nella cache dell'utente diventa
+     * obsoleto → invalidiamo solo le entry di quell'username.
+     */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.CACHE_THEMES_ALL,     key = "#username"),
+            @CacheEvict(value = RedisConfig.CACHE_THEMES_PRESETS, key = "#username")
+    })
     public void followTheme(Long themeId, String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -85,6 +121,10 @@ public class ThemeService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.CACHE_THEMES_ALL,     key = "#username"),
+            @CacheEvict(value = RedisConfig.CACHE_THEMES_PRESETS, key = "#username")
+    })
     public void unfollowTheme(Long themeId, String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -99,14 +139,9 @@ public class ThemeService {
     // Helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Costruisce la lista di ThemeResponse con una sola query per i conteggi
-     * e una sola query per i follow dell'utente corrente — zero loop N+1.
-     */
     private List<ThemeResponse> toResponseList(List<Theme> themes, String currentUsername) {
         if (themes.isEmpty()) return List.of();
 
-        // 1. Conteggi follower: una query GROUP BY
         Map<Long, Long> followerCounts = themeFollowRepository
                 .countFollowersByThemes(themes)
                 .stream()
@@ -115,7 +150,6 @@ public class ThemeService {
                         row -> (Long) row[1]
                 ));
 
-        // 2. Temi seguiti dall'utente: una query IN
         Set<Long> followedIds;
         if (currentUsername != null) {
             User me = userRepository.findByUsername(currentUsername).orElse(null);

@@ -1,5 +1,6 @@
 package com.happypath.service;
 
+import com.happypath.config.RedisConfig;
 import com.happypath.dto.request.UpdateProfileRequest;
 import com.happypath.dto.response.UserProfile;
 import com.happypath.dto.response.UserSummary;
@@ -10,6 +11,9 @@ import com.happypath.repository.BlockRepository;
 import com.happypath.repository.FollowRepository;
 import com.happypath.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +39,19 @@ public class UserService {
                 .orElseThrow(() -> new HappyPathException("Utente non trovato", HttpStatus.NOT_FOUND));
     }
 
+    /**
+     * Profilo pubblico utente — cachato 5 minuti.
+     *
+     * La chiave combina username + currentUser (può essere null per utenti anonimi).
+     * I campi isFollowed e isBlocked dipendono dall'utente autenticato, quindi
+     * includiamo il suo ID nella chiave per evitare cross-user cache pollution.
+     *
+     * Nota: se si vogliono ridurre le entry in cache si può separare la parte
+     * pubblica (followerCount, bio, avatar) da quella user-specific (isFollowed).
+     */
+    @Cacheable(
+            value = RedisConfig.CACHE_USER_PROFILE,
+            key = "#username + ':' + (#currentUser != null ? #currentUser.id : 'anon')")
     public UserProfile getProfile(String username, User currentUser) {
         User target = findByUsername(username);
         boolean isFollowed = currentUser != null
@@ -47,26 +64,36 @@ public class UserService {
     }
 
     /**
-     * BUG FIX: il campo profileColor non veniva salvato.
-     * Ora tutti i campi di UpdateProfileRequest vengono correttamente persistiti.
+     * Aggiornamento profilo: invalida TUTTE le entry dell'utente
+     * (qualsiasi visitatore avrebbe dati obsoleti).
      */
     @Transactional
+    @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
     public UserProfile updateProfile(User user, UpdateProfileRequest req) {
-        if (req.displayName() != null) user.setDisplayName(req.displayName());
-        if (req.bio() != null) user.setBio(req.bio());
-        if (req.avatarUrl() != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.profileColor() != null) user.setProfileColor(req.profileColor()); // FIX: era mancante
+        if (req.displayName()  != null) user.setDisplayName(req.displayName());
+        if (req.bio()          != null) user.setBio(req.bio());
+        if (req.avatarUrl()    != null) user.setAvatarUrl(req.avatarUrl());
+        if (req.profileColor() != null) user.setProfileColor(req.profileColor());
         user = userRepository.save(user);
         return getProfile(user.getUsername(), user);
     }
 
+    /**
+     * Follow: il conteggio follower del target e il flag isFollowed cambiano
+     * → invalidiamo le entry di entrambi gli utenti coinvolti.
+     */
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
+                        key = "#follower.username + ':' + #follower.id"),
+            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
+                        key = "''+#targetId+':anon'")
+    })
     public void follow(User follower, Long targetId) {
         User target = findById(targetId);
         if (follower.getId().equals(targetId))
             throw new HappyPathException("Non puoi seguire te stesso", HttpStatus.BAD_REQUEST);
 
-        // Blocco in qualsiasi direzione impedisce il follow
         if (blockRepository.existsByBlockerIdAndBlockedId(target.getId(), follower.getId())
                 || blockRepository.existsByBlockerIdAndBlockedId(follower.getId(), target.getId()))
             throw new HappyPathException("Non è possibile seguire questo utente", HttpStatus.FORBIDDEN);
@@ -79,6 +106,12 @@ public class UserService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
+                        key = "#follower.username + ':' + #follower.id"),
+            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
+                        key = "''+#targetId+':anon'")
+    })
     public void unfollow(User follower, Long targetId) {
         User target = findById(targetId);
         Follow follow = followRepository.findByFollowerAndFollowed(follower, target)
@@ -86,14 +119,12 @@ public class UserService {
         followRepository.delete(follow);
     }
 
-    /** Follower dell'utente corrente (chi mi segue) */
     public List<UserSummary> getFollowers(User user) {
         return followRepository.findByFollowed(user).stream()
                 .map(f -> toSummary(f.getFollower()))
                 .toList();
     }
 
-    /** Utenti seguiti dall'utente corrente */
     public List<UserSummary> getFollowing(User user) {
         return followRepository.findByFollower(user).stream()
                 .map(f -> toSummary(f.getFollowed()))
