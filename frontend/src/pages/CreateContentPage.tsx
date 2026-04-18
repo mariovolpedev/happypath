@@ -4,15 +4,19 @@ import { createContent } from '../api/content'
 import { useThemes } from '../hooks/useThemes'
 import { useAuthStore } from '../store/authStore'
 import PublisherPicker from '../components/content/PublisherPicker'
+import MediaUploader from '../components/content/MediaUploader'
 
 export default function CreateContentPage() {
-  const [form, setForm]           = useState({ title: '', body: '', mediaUrl: '', themeId: '' })
+  const [form, setForm]             = useState({ title: '', body: '', themeId: '' })
+  const [mediaUrl, setMediaUrl]     = useState('')
   const [alterEgoId, setAlterEgoId] = useState<number | undefined>(undefined)
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const navigate                  = useNavigate()
-  const themes                    = useThemes()
-  const { user }                  = useAuthStore()
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
+  // Modalità inserimento media: 'upload' (default) | 'url'
+  const [mediaMode, setMediaMode]   = useState<'upload' | 'url'>('upload')
+  const navigate                    = useNavigate()
+  const themes                      = useThemes()
+  const { user }                    = useAuthStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,7 +26,7 @@ export default function CreateContentPage() {
       const c = await createContent({
         title:      form.title,
         body:       form.body || undefined,
-        mediaUrl:   form.mediaUrl || undefined,
+        mediaUrl:   mediaUrl || undefined,
         themeId:    form.themeId ? Number(form.themeId) : undefined,
         alterEgoId,
       })
@@ -43,6 +47,7 @@ export default function CreateContentPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Titolo */}
           <input
             className="input"
             placeholder="Titolo *"
@@ -51,18 +56,64 @@ export default function CreateContentPage() {
             required
             maxLength={200}
           />
+
+          {/* Testo */}
           <textarea
-            className="input min-h-[140px] resize-none"
+            className="input min-h-[120px] resize-none"
             placeholder="Racconta qualcosa di positivo..."
             value={form.body}
             onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
           />
-          <input
-            className="input"
-            placeholder="URL immagine/video (opzionale)"
-            value={form.mediaUrl}
-            onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))}
-          />
+
+          {/* ── Sezione Media ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Media (opzionale)</span>
+              {/* Toggle upload / URL */}
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => { setMediaMode('upload'); setMediaUrl('') }}
+                  className={`px-3 py-1.5 transition-colors ${
+                    mediaMode === 'upload'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  📁 Carica file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMediaMode('url'); setMediaUrl('') }}
+                  className={`px-3 py-1.5 transition-colors ${
+                    mediaMode === 'url'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  🔗 Inserisci URL
+                </button>
+              </div>
+            </div>
+
+            {mediaMode === 'upload' ? (
+              <MediaUploader
+                value={mediaUrl}
+                onChange={(url) => setMediaUrl(url)}
+                disabled={loading}
+              />
+            ) : (
+              <input
+                className="input"
+                placeholder="https://esempio.com/immagine.jpg"
+                value={mediaUrl}
+                onChange={e => setMediaUrl(e.target.value)}
+                type="url"
+              />
+            )}
+          </div>
+
+          {/* Tema */}
           <select
             className="input"
             value={form.themeId}
