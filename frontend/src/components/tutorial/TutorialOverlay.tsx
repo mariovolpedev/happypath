@@ -72,11 +72,8 @@ export default function TutorialOverlay({ onClose }: Props) {
   }
 
   const next = () => {
-    if (isLast) {
-      handleClose()
-    } else {
-      setStep(s => s + 1)
-    }
+    if (isLast) handleClose()
+    else setStep(s => s + 1)
   }
 
   const prev = () => setStep(s => Math.max(0, s - 1))
@@ -90,25 +87,54 @@ export default function TutorialOverlay({ onClose }: Props) {
       aria-label="Tutorial di benvenuto"
     >
       <div
-        className="card w-full max-w-md relative animate-fade-in"
-        style={{ maxHeight: '90vh', overflowY: 'auto' }}
+        className="card w-full max-w-md"
+        style={{ maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}
       >
-        {/* Skip button */}
-        <button
-          onClick={handleClose}
-          className="absolute top-3 right-3 text-sm px-3 py-1 rounded-full transition-colors"
-          style={{ color: 'var(--text-faint)', background: 'var(--surface-2)' }}
-          aria-label="Salta il tutorial"
-        >
-          Salta ×
-        </button>
-
-        {/* Progress bar */}
-        <div className="h-1 rounded-full mb-6 overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+        {/* ── Header row: progress bar + skip button ── */}
+        {/*
+          FIX 1: la barra e il bottone Salta sono in una riga flex separata
+          in cima alla card, così al 100% la barra non sovrasta mai il bottone.
+        */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          {/* Progress bar — occupa tutto lo spazio residuo */}
           <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${progress}%`, background: 'var(--happy-500, #eab308)' }}
-          />
+            style={{
+              flex: 1,
+              height: '4px',
+              borderRadius: '9999px',
+              background: 'var(--surface-2, rgba(255,255,255,0.12))',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                borderRadius: '9999px',
+                width: `${progress}%`,
+                background: 'var(--happy-500, #eab308)',
+                transition: 'width 0.5s ease',
+              }}
+            />
+          </div>
+
+          {/* Skip button — a destra della barra, mai sovrapposto */}
+          <button
+            onClick={handleClose}
+            style={{
+              flexShrink: 0,
+              fontSize: '0.75rem',
+              padding: '0.2rem 0.65rem',
+              borderRadius: '9999px',
+              color: 'var(--text-faint, #888)',
+              background: 'var(--surface-2, rgba(255,255,255,0.08))',
+              border: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+            aria-label="Salta il tutorial"
+          >
+            Salta ×
+          </button>
         </div>
 
         {/* Step indicator */}
@@ -127,12 +153,13 @@ export default function TutorialOverlay({ onClose }: Props) {
           </p>
         </div>
 
-        {/* Dot navigation
-            I <button> vuoti con solo classi Tailwind w-2 h-2 possono collassare a 0
-            perché i browser applicano min-width/min-height: auto sugli elementi button.
-            Soluzione: dimensioni forzate via style inline + padding:0 + display:block.
+        {/*
+          Dot navigation
+          FIX 2: i dot inattivi usano un colore solido (#555) invece di una
+          variabile CSS potenzialmente non definita o troppo trasparente.
+          Il dot attivo diventa una pill (20px wide) per maggiore leggibilità.
         */}
-        <div className="flex justify-center gap-2 mt-4 mb-6">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '1rem', marginBottom: '1.5rem' }}>
           {STEPS.map((_, i) => (
             <button
               key={i}
@@ -148,8 +175,8 @@ export default function TutorialOverlay({ onClose }: Props) {
                 borderRadius: '9999px',
                 background: i === step
                   ? 'var(--happy-500, #eab308)'
-                  : 'var(--color-border, rgba(255,255,255,0.25))',
-                opacity: i === step ? 1 : 0.5,
+                  : '#555',
+                opacity: i === step ? 1 : 0.6,
                 transition: 'all 0.3s ease',
                 cursor: 'pointer',
                 flexShrink: 0,
@@ -168,10 +195,7 @@ export default function TutorialOverlay({ onClose }: Props) {
           >
             ← Indietro
           </button>
-          <button
-            onClick={next}
-            className="btn-primary flex-1"
-          >
+          <button onClick={next} className="btn-primary flex-1">
             {isLast ? '🎉 Inizia!' : 'Avanti →'}
           </button>
         </div>
