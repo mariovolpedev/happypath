@@ -18,7 +18,7 @@ const STEPS = [
   {
     emoji: '✍️',
     title: 'Crea un contenuto',
-    desc: 'Premi il pulsante ✏️ in alto per condividere una storia, un\'emozione o un\'ispirazione. Aggiungi foto, mood e dediche.',
+    desc: "Premi il pulsante ✏️ in alto per condividere una storia, un'emozione o un'ispirazione. Aggiungi foto, mood e dediche.",
     highlight: 'create',
   },
   {
@@ -30,7 +30,7 @@ const STEPS = [
   {
     emoji: '🎨',
     title: 'Temi personalizzati',
-    desc: 'Vai su Temi per cambiare i colori dell\'interfaccia. Puoi scegliere tra quelli della community o creare il tuo.',
+    desc: "Vai su Temi per cambiare i colori dell'interfaccia. Puoi scegliere tra quelli della community o creare il tuo.",
     highlight: 'themes',
   },
   {
@@ -42,7 +42,7 @@ const STEPS = [
   {
     emoji: '🚀',
     title: 'Sei pronto!',
-    desc: 'Inizia a esplorare HappyPath. Ricorda: ogni piccola storia positiva rende il mondo un po\' più felice. ✨',
+    desc: "Inizia a esplorare HappyPath. Ricorda: ogni piccola storia positiva rende il mondo un po' più felice. ✨",
     highlight: null,
   },
 ]
@@ -60,7 +60,6 @@ export default function TutorialOverlay({ onClose }: Props) {
   const progress = ((step + 1) / STEPS.length) * 100
 
   const handleClose = async () => {
-    // Chiama il BE per segnare il tutorial come completato
     try {
       await completeTutorial()
     } catch {
@@ -128,18 +127,33 @@ export default function TutorialOverlay({ onClose }: Props) {
           </p>
         </div>
 
-        {/* Dot navigation */}
+        {/* Dot navigation
+            I <button> vuoti con solo classi Tailwind w-2 h-2 possono collassare a 0
+            perché i browser applicano min-width/min-height: auto sugli elementi button.
+            Soluzione: dimensioni forzate via style inline + padding:0 + display:block.
+        */}
         <div className="flex justify-center gap-2 mt-4 mb-6">
           {STEPS.map((_, i) => (
             <button
               key={i}
               onClick={() => setStep(i)}
-              className="w-2 h-2 rounded-full transition-all"
-              style={{
-                background: i === step ? 'var(--happy-500, #eab308)' : 'var(--surface-2)',
-                transform: i === step ? 'scale(1.3)' : 'scale(1)',
-              }}
               aria-label={`Vai al passo ${i + 1}`}
+              style={{
+                display: 'block',
+                width: i === step ? '20px' : '8px',
+                height: '8px',
+                minWidth: 0,
+                padding: 0,
+                border: 'none',
+                borderRadius: '9999px',
+                background: i === step
+                  ? 'var(--happy-500, #eab308)'
+                  : 'var(--color-border, rgba(255,255,255,0.25))',
+                opacity: i === step ? 1 : 0.5,
+                transition: 'all 0.3s ease',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
             />
           ))}
         </div>
