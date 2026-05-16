@@ -4,7 +4,6 @@ import { getMyFollowers, getMyFollowing, uploadAvatar } from '../api/users'
 import { getBlockedUsers, unblockUser } from '../api/blocks'
 import type { UserSummary, ReportStatus, ReportTarget } from '../types'
 import Avatar from '../components/common/Avatar'
-import VerifiedBadge from '../components/common/VerifiedBadge'
 import Spinner from '../components/common/Spinner'
 import api from '../api/client'
 import { useAuthStore } from '../store/authStore'
@@ -39,9 +38,11 @@ function UserRow({ user, action }: { user: UserSummary; action?: React.ReactNode
         <Avatar user={user} size="md" />
       </Link>
       <div className="flex-1 min-w-0">
-        <Link to={`/u/${user.username}`}
+        <Link
+          to={`/u/${user.username}`}
           className="font-semibold text-sm block truncate hover:text-happy-600 transition-colors"
-          style={{ color: 'var(--text-primary)' }}>
+          style={{ color: 'var(--text-primary)' }}
+        >
           {user.displayName}
           {user.verified && <span className="ml-1 text-blue-500 text-xs">✅</span>}
         </Link>
@@ -52,21 +53,22 @@ function UserRow({ user, action }: { user: UserSummary; action?: React.ReactNode
   )
 }
 
-// ─── Avatar Upload Section ────────────────────────────────────────────────────
+// ── Avatar Upload Section ──────────────────────────────────────────────────────
 function AvatarUploadSection() {
-  const { user, setUser } = useAuthStore()
+  const user    = useAuthStore(s => s.user)
+  const setUser = useAuthStore(s => s.setUser)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [preview,    setPreview]    = useState<string | null>(null)
-  const [uploading,  setUploading]  = useState(false)
-  const [success,    setSuccess]    = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
+  const [preview,   setPreview]   = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [success,   setSuccess]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-    const url = URL.createObjectURL(file)
-    setPreview(url)
+    setPreview(URL.createObjectURL(file))
     setSuccess(false)
     setError(null)
     handleUpload(file)
@@ -77,7 +79,6 @@ function AvatarUploadSection() {
     setError(null)
     try {
       const newUrl = await uploadAvatar(file)
-      // Aggiorna lo store con il nuovo avatar
       if (user) setUser({ ...user, avatarUrl: newUrl })
       setSuccess(true)
     } catch (err: any) {
@@ -87,6 +88,11 @@ function AvatarUploadSection() {
       setUploading(false)
     }
   }
+
+  // Cleanup object URL on unmount / change
+  useEffect(() => {
+    return () => { if (preview) URL.revokeObjectURL(preview) }
+  }, [preview])
 
   const currentAvatar = preview ?? user?.avatarUrl
 
@@ -104,18 +110,16 @@ function AvatarUploadSection() {
             style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-base)' }}
           >
             {currentAvatar ? (
-              <img
-                src={currentAvatar}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
+              <img src={currentAvatar} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <span className="text-3xl">👤</span>
             )}
           </div>
           {uploading && (
-            <div className="absolute inset-0 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+            <div
+              className="absolute inset-0 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+            >
               <span className="animate-spin text-white text-xl">⏳</span>
             </div>
           )}
@@ -129,7 +133,6 @@ function AvatarUploadSection() {
           <p className="text-xs mb-3" style={{ color: 'var(--text-faint)' }}>
             Formati supportati: JPG, PNG, GIF, WebP · Max 10 MB
           </p>
-
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -138,7 +141,6 @@ function AvatarUploadSection() {
           >
             {uploading ? 'Caricamento…' : 'Cambia foto'}
           </button>
-
           <input
             ref={fileInputRef}
             type="file"
@@ -149,16 +151,17 @@ function AvatarUploadSection() {
         </div>
       </div>
 
-      {/* Feedback */}
       {success && (
-        <div className="mt-3 flex items-center gap-2 text-sm rounded-lg px-3 py-2"
-          style={{ backgroundColor: 'var(--color-success-highlight, #d4dfcc)', color: 'var(--color-success, #437a22)' }}>
+        <div
+          className="mt-3 flex items-center gap-2 text-sm rounded-lg px-3 py-2"
+          style={{ backgroundColor: 'var(--color-success-highlight,#d4dfcc)', color: 'var(--color-success,#437a22)' }}
+        >
           ✅ Avatar aggiornato con successo!
         </div>
       )}
       {error && (
         <div className="mt-3 flex items-center gap-2 text-sm rounded-lg px-3 py-2"
-          style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}>
+             style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}>
           ⚠️ {error}
         </div>
       )}
@@ -166,7 +169,7 @@ function AvatarUploadSection() {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('profile')
   const [followers, setFollowers] = useState<UserSummary[]>([])
@@ -187,9 +190,7 @@ export default function SettingsPage() {
     }
     if (activeTab === 'blocked' && blocked.length === 0) {
       setLoadingBlocked(true)
-      getBlockedUsers()
-        .then(setBlocked)
-        .finally(() => setLoadingBlocked(false))
+      getBlockedUsers().then(setBlocked).finally(() => setLoadingBlocked(false))
     }
     if (activeTab === 'reports' && reports.length === 0) {
       setLoadingReports(true)
@@ -219,8 +220,10 @@ export default function SettingsPage() {
       </h1>
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-2xl p-1 mb-6"
-           style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      <div
+        className="flex gap-1 rounded-2xl p-1 mb-6"
+        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
+      >
         {tabs.map(t => (
           <button
             key={t.key}
@@ -251,9 +254,7 @@ export default function SettingsPage() {
                   👤 Follower <span className="text-happy-600 ml-1">{followers.length}</span>
                 </h2>
                 {followers.length === 0 ? (
-                  <p className="text-sm py-4 text-center" style={{ color: 'var(--text-faint)' }}>
-                    Nessun follower ancora.
-                  </p>
+                  <p className="text-sm py-4 text-center" style={{ color: 'var(--text-faint)' }}>Nessun follower ancora.</p>
                 ) : (
                   <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                     {followers.map(u => <UserRow key={u.id} user={u} />)}
@@ -266,9 +267,7 @@ export default function SettingsPage() {
                   ➡️ Seguiti <span className="text-happy-600 ml-1">{following.length}</span>
                 </h2>
                 {following.length === 0 ? (
-                  <p className="text-sm py-4 text-center" style={{ color: 'var(--text-faint)' }}>
-                    Non segui ancora nessuno.
-                  </p>
+                  <p className="text-sm py-4 text-center" style={{ color: 'var(--text-faint)' }}>Non segui ancora nessuno.</p>
                 ) : (
                   <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                     {following.map(u => <UserRow key={u.id} user={u} />)}
@@ -280,16 +279,13 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Utenti bloccati ── */}
+      {/* ── Bloccati ── */}
       {activeTab === 'blocked' && (
         <div className="card">
-          <h2 className="font-display font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>
-            🚫 Utenti bloccati
-          </h2>
+          <h2 className="font-display font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>🚫 Utenti bloccati</h2>
           <p className="text-xs mb-4" style={{ color: 'var(--text-faint)' }}>
             Gli utenti bloccati non possono seguirti e non vedi i loro contenuti nei feed.
           </p>
-
           {loadingBlocked ? <Spinner /> : blocked.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-4xl mb-3">😊</p>
@@ -320,13 +316,10 @@ export default function SettingsPage() {
       {/* ── Segnalazioni ── */}
       {activeTab === 'reports' && (
         <div className="card">
-          <h2 className="font-display font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>
-            🚩 Le mie segnalazioni
-          </h2>
+          <h2 className="font-display font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>🚩 Le mie segnalazioni</h2>
           <p className="text-xs mb-4" style={{ color: 'var(--text-faint)' }}>
             Segnalazioni che hai inviato e il loro stato di revisione.
           </p>
-
           {loadingReports ? <Spinner /> : reports.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-4xl mb-3">📭</p>
@@ -350,11 +343,7 @@ export default function SettingsPage() {
                         {meta.icon} {meta.label}
                       </span>
                     </div>
-
-                    <p className="text-sm line-clamp-2" style={{ color: 'var(--text-primary)' }}>
-                      {r.reason}
-                    </p>
-
+                    <p className="text-sm line-clamp-2" style={{ color: 'var(--text-primary)' }}>{r.reason}</p>
                     {r.reviewNote && (
                       <div className="mt-2 bg-blue-50 rounded-lg px-3 py-2">
                         <p className="text-xs text-blue-600 font-medium mb-0.5">Nota del moderatore</p>

@@ -2,10 +2,12 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UserSummary } from '../types'
 
-interface AuthState {
+export interface AuthState {
   token: string | null
   user: UserSummary | null
   setAuth: (token: string, user: UserSummary) => void
+  /** Aggiorna solo i dati utente (es. dopo upload avatar) */
+  setUser: (user: UserSummary) => void
   logout: () => void
   isAuthenticated: () => boolean
   isModeratorOrAdmin: () => boolean
@@ -19,6 +21,9 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (token, user) => {
         localStorage.setItem('hp_token', token)
         set({ token, user })
+      },
+      setUser: (user) => {
+        set({ user })
       },
       logout: () => {
         localStorage.removeItem('hp_token')

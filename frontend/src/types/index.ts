@@ -1,95 +1,135 @@
-// ─── Auth ────────────────────────────────────────────────────────────────────
-export type Role = 'USER' | 'MODERATOR' | 'ADMIN'
+export type UserRole = 'USER' | 'VERIFIED_USER' | 'MODERATOR' | 'ADMIN'
+export type ContentStatus = 'ACTIVE' | 'CENSORED' | 'DELETED'
+export type ReactionType = 'HEART' | 'LAUGH' | 'WOW' | 'CLAP' | 'SMILE'
+export type BanDuration = 'SHORT' | 'MEDIUM' | 'LONG' | 'PERMANENT'
+export type ReportTarget = 'USER' | 'CONTENT' | 'COMMENT'
+export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
+export type FeedSortStrategy = 'RECENT' | 'RANDOM' | 'SMART'
+export type FeedItemType = 'CONTENT' | 'COMMENT' | 'REACTION' | 'FOLLOW_EVENT'
 
-export interface AuthUser {
-  id: number
-  username: string
-  displayName: string
-  avatarUrl?: string
-  role: Role
-  verified: boolean
-}
+// Alias mantenuto per retrocompatibilità
+export type Role = UserRole
 
-// ─── Users ───────────────────────────────────────────────────────────────────
 export interface UserSummary {
   id: number
   username: string
   displayName: string
   avatarUrl?: string
-  role: Role
+  role: UserRole
   verified: boolean
 }
 
 export interface UserProfile extends UserSummary {
   bio?: string
   profileColor?: string
-  followerCount: number
+  followersCount: number
   followingCount: number
-  isFollowed: boolean
-  isBlocked: boolean
+  isFollowedByMe: boolean
+  isBlockedByMe: boolean
   createdAt: string
 }
 
-// ─── Contents ────────────────────────────────────────────────────────────────
+export interface ThemeResponse {
+  id: number
+  name: string
+  description?: string
+  iconEmoji?: string
+  preset: boolean
+  followersCount: number
+  followedByMe: boolean
+  createdAt: string
+}
+
+export interface AlterEgoResponse {
+  id: number
+  name: string
+  description?: string
+  avatarUrl?: string
+  owner: UserSummary
+  createdAt: string
+}
+
 export interface ContentResponse {
   id: number
   title: string
   body?: string
   mediaUrl?: string
-  mediaType?: 'IMAGE' | 'VIDEO'
+  author: UserSummary
+  alterEgo?: AlterEgoResponse
+  theme?: ThemeResponse
+  status: ContentStatus
+  reactionsCount: number
+  commentsCount: number
+  reactionsByType: Record<string, number>
+  myReaction?: string
+  dedications: Array<{ from: UserSummary; to: UserSummary }>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CommentResponse {
+  id: number
+  text: string
+  author: UserSummary
+  alterEgo?: AlterEgoResponse
+  parentId?: number
+  status: ContentStatus
+  createdAt: string
+}
+
+export interface FeedItemResponse {
+  type: FeedItemType
+  actor: UserSummary
+  content?: ContentResponse
+  comment?: CommentResponse
+  reactionType?: string
+  targetUser?: UserSummary
+  eventAt: string
+  score: number
+}
+
+export interface FeedSettings {
+  sortStrategy: FeedSortStrategy
+  showContents: boolean
+  showComments: boolean
+  showReactions: boolean
+  showFollowEvents: boolean
+}
+
+export interface MessageContentSummary {
+  id: number
+  title: string
+  body?: string
+  mediaUrl?: string
   author: UserSummary
   themeName?: string
   themeEmoji?: string
-  themeId?: number
-  reactionCount: number
-  commentCount: number
-  createdAt: string
-  myReaction?: string
 }
 
-// ─── Messages ────────────────────────────────────────────────────────────────
 export interface MessageResponse {
   id: number
   sender: UserSummary
   senderAlterEgo?: AlterEgoResponse
   recipient: UserSummary
-  text?: string
+  text: string
   readByRecipient: boolean
   sentAt: string
-  attachedContent?: {
-    id: number
-    title: string
-    body?: string
-    mediaUrl?: string
-    author: UserSummary
-    themeName?: string
-    themeEmoji?: string
-  }
+  attachedContent?: MessageContentSummary
   attachedUser?: UserSummary
-  /** URL MinIO di un'immagine allegata al messaggio */
+  /** URL MinIO dell'immagine allegata al messaggio */
   imageUrl?: string
 }
 
-// ─── Alter Egos ──────────────────────────────────────────────────────────────
-export interface AlterEgoResponse {
-  id: number
-  name: string
-  bio?: string
-  avatarUrl?: string
-  verified: boolean
-  createdAt: string
-}
-
-// ─── Pages ───────────────────────────────────────────────────────────────────
 export interface Page<T> {
   content: T[]
-  totalPages: number
   totalElements: number
+  totalPages: number
   number: number
   size: number
   last: boolean
 }
 
-// ─── Reports ─────────────────────────────────────────────────────────────────
-export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
-export type ReportTarget = 'USER' | 'CONTENT' | 'COMMENT'
+export interface AuthResponse {
+  token: string
+  user: UserSummary
+}
