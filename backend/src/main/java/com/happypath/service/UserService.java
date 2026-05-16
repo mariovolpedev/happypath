@@ -39,16 +39,6 @@ public class UserService {
                 .orElseThrow(() -> new HappyPathException("Utente non trovato", HttpStatus.NOT_FOUND));
     }
 
-    /**
-     * Profilo pubblico utente — cachato 5 minuti.
-     *
-     * La chiave combina username + currentUser (può essere null per utenti anonimi).
-     * I campi isFollowed e isBlocked dipendono dall'utente autenticato, quindi
-     * includiamo il suo ID nella chiave per evitare cross-user cache pollution.
-     *
-     * Nota: se si vogliono ridurre le entry in cache si può separare la parte
-     * pubblica (followerCount, bio, avatar) da quella user-specific (isFollowed).
-     */
     @Cacheable(
             value = RedisConfig.CACHE_USER_PROFILE,
             key = "#username + ':' + (#currentUser != null ? #currentUser.id : 'anon')")
@@ -63,10 +53,6 @@ public class UserService {
         return toProfile(target, followers, following, isFollowed, isBlocked);
     }
 
-    /**
-     * Aggiornamento profilo: invalida TUTTE le entry dell'utente
-     * (qualsiasi visitatore avrebbe dati obsoleti).
-     */
     @Transactional
     @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
     public UserProfile updateProfile(User user, UpdateProfileRequest req) {
@@ -78,10 +64,6 @@ public class UserService {
         return getProfile(user.getUsername(), user);
     }
 
-    /**
-     * Follow: il conteggio follower del target e il flag isFollowed cambiano
-     * → invalidiamo le entry di entrambi gli utenti coinvolti.
-     */
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
@@ -106,12 +88,7 @@ public class UserService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
-                        key = "#follower.username + ':' + #follower.id"),
-            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
-                        key = "''+#targetId+':anon'")
-    })
+    @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
     public void unfollow(User follower, Long targetId) {
         User target = findById(targetId);
         Follow follow = followRepository.findByFollowerAndFollowed(follower, target)
@@ -119,13 +96,44 @@ public class UserService {
         followRepository.delete(follow);
     }
 
+    /**
+     * Rimuove un seguace: l'utente con id followerId smette di seguire `owner`.
+     * Usato quando l'owner vuole rimuovere qualcuno dalla propria lista seguaci.
+     */
+    @Transactional
+    @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
+    public void removeFollower(User owner, Long followerId) {
+        User follower = findById(followerId);
+        Follow follow = followRepository.findByFollowerAndFollowed(follower, owner)
+                .orElseThrow(() -> new HappyPathException("Questo utente non ti segue", HttpStatus.BAD_REQUEST));
+        followRepository.delete(follow);
+    }
+
+    /** Seguaci dell'utente autenticato (chi lo segue). */
     public List<UserSummary> getFollowers(User user) {
         return followRepository.findByFollowed(user).stream()
                 .map(f -> toSummary(f.getFollower()))
                 .toList();
     }
 
+    /** Utenti seguiti dall'utente autenticato. */
     public List<UserSummary> getFollowing(User user) {
+        return followRepository.findByFollower(user).stream()
+                .map(f -> toSummary(f.getFollowed()))
+                .toList();
+    }
+
+    /** Seguaci pubblici di un utente per username. */
+    public List<UserSummary> getFollowersByUsername(String username) {
+        User user = findByUsername(username);
+        return followRepository.findByFollowed(user).stream()
+                .map(f -> toSummary(f.getFollower()))
+                .toList();
+    }
+
+    /** Seguiti pubblici di un utente per username. */
+    public List<UserSummary> getFollowingByUsername(String username) {
+        User user = findByUsername(username);
         return followRepository.findByFollower(user).stream()
                 .map(f -> toSummary(f.getFollowed()))
                 .toList();
