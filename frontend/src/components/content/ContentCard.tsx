@@ -25,7 +25,14 @@ interface Props {
   onDelete?: (id: number) => void
 }
 
-// ─── Cambio publisher inline nel menu ────────────────────────────────────────
+// ─── Stile condiviso per popup floating (alter ego picker, reaction picker) ───
+const popupStyle: React.CSSProperties = {
+  backgroundColor: 'var(--bg-card)',
+  borderColor: 'var(--border)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+}
+
+// ─── Cambio publisher inline nel menu ───────────────────────────────────
 function ChangePublisherInline({
   contentId, currentAlterEgoId, onChanged, onClose,
 }: {
@@ -124,16 +131,21 @@ function ReactorsModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full sm:w-[400px] max-h-[70vh] rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden shadow-xl"
-        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+        className="w-full sm:w-[400px] max-h-[70vh] rounded-t-2xl sm:rounded-2xl
+                   flex flex-col overflow-hidden"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+        }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b"
+          className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
           style={{ borderColor: 'var(--border)' }}
         >
           <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -161,7 +173,7 @@ function ReactorsModal({
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
                            hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                {/* Avatar */}
+                {/* Avatar con emoji badge */}
                 <div className="relative flex-shrink-0">
                   {r.alterEgo ? (
                     r.alterEgo.avatarUrl
@@ -171,11 +183,10 @@ function ReactorsModal({
                   ) : (
                     <Avatar user={r.user} size="sm" />
                   )}
-                  {/* Emoji badge */}
                   <span
                     className="absolute -bottom-0.5 -right-0.5 text-xs leading-none
                                w-4 h-4 flex items-center justify-center rounded-full"
-                    style={{ backgroundColor: 'var(--surface)' }}
+                    style={{ backgroundColor: 'var(--bg-card)' }}
                   >
                     {REACTIONS.find(rx => rx.type === r.type)?.emoji ?? '❤️'}
                   </span>
@@ -198,7 +209,6 @@ function ReactorsModal({
               </Link>
             ))
           ) : (
-            /* reactions null = feed paginato, suggerisci di aprire il post */
             <div className="flex flex-col items-center py-8 gap-2">
               <span className="text-3xl">❤️</span>
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -226,7 +236,8 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
   const [showReport,    setShowReport]    = useState(false)
   const [showMenu,      setShowMenu]      = useState(false)
   const [alterEgos,     setAlterEgos]     = useState<AlterEgoResponse[]>([])
-  const [selectedAeId,  setSelectedAeId]  = useState<number | undefined>()
+  // selectedAeId: undefined = reagisce come se stesso, number = reagisce come AE
+  const [selectedAeId,  setSelectedAeId]  = useState<number | undefined>(undefined)
   const [showAePicker,  setShowAePicker]  = useState(false)
   const [showReactors,  setShowReactors]  = useState(false)
   const { user, isAuthenticated }         = useAuthStore()
@@ -248,6 +259,8 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
       setAlterEgos(aes)
       if (aes.length > 0) { setShowAePicker(true); return }
     }
+    // Nessun alter ego: resetta sempre a "se stesso" prima di aprire il picker
+    setSelectedAeId(undefined)
     setShowReactions(s => !s)
   }
 
@@ -276,15 +289,18 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     }
     setShowReactions(false)
     setShowAePicker(false)
+    // Reset selectedAeId dopo ogni reazione così la prossima parte da "se stesso"
+    setSelectedAeId(undefined)
   }
 
-  // Testo in stile Facebook: "Mario e altre 3 persone"
+  // Label stile Facebook — usa solo user.displayName, MAI alterEgo.name
+  // (l'alter ego è visibile solo nel modal completo)
   const reactionsLabel = (() => {
     const n = content.reactionsCount
     if (n === 0) return null
     if (content.reactions && content.reactions.length > 0) {
-      const first = content.reactions[0]
-      const firstName = first.alterEgo ? first.alterEgo.name : first.user.displayName
+      // Usa sempre il nome utente reale, indipendentemente dall'alter ego
+      const firstName = content.reactions[0].user.displayName
       if (n === 1) return firstName
       if (n === 2) return `${firstName} e un'altra persona`
       return `${firstName} e altre ${n - 1} persone`
@@ -293,7 +309,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     return `${n} persone hanno reagito`
   })()
 
-  // Emoji preview (prime 3 reazioni distinte per tipo)
+  // Emoji preview: prime 3 reazioni per frequenza
   const topEmojis = Object.entries(content.reactionsByType ?? {})
     .filter(([, v]) => v > 0)
     .sort(([, a], [, b]) => b - a)
@@ -377,9 +393,13 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                 </button>
                 {showMenu && (
                   <div
-                    className="absolute right-0 top-full mt-1 rounded-xl shadow-lg z-20
+                    className="absolute right-0 top-full mt-1 rounded-xl z-20
                                min-w-[190px] overflow-hidden border"
-                    style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      borderColor: 'var(--border)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    }}
                     onMouseLeave={() => setShowMenu(false)}
                   >
                     {canReport && (
@@ -456,14 +476,16 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
         {/* Riga reactions label stile Facebook */}
         {reactionsLabel && (
           <div className="flex items-center gap-1.5 mt-3">
-            {/* Emoji pill */}
             {topEmojis.length > 0 && (
               <span className="flex -space-x-0.5">
                 {topEmojis.map((emoji, i) => (
                   <span
                     key={i}
                     className="w-5 h-5 flex items-center justify-center text-xs rounded-full"
-                    style={{ backgroundColor: 'var(--surface-raised, var(--bg))', border: '1.5px solid var(--border)' }}
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1.5px solid var(--border)',
+                    }}
                   >
                     {emoji}
                   </span>
@@ -483,6 +505,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
         {/* Footer */}
         <div className="flex items-center gap-3 mt-3 pt-3 border-t flex-wrap"
           style={{ borderColor: 'var(--border)' }}>
+
           {/* Bottone reagisci */}
           <div className="relative">
             <button
@@ -503,13 +526,17 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             {/* Popup: scegli alter ego */}
             {showAePicker && (
               <div
-                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg border p-3 z-10 min-w-[180px]"
-                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+                className="absolute bottom-full left-0 mb-2 rounded-2xl border p-3 z-10 min-w-[180px]"
+                style={popupStyle}
               >
                 <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>Reagisci come:</p>
                 <div className="space-y-1 mb-2">
                   <button
-                    onClick={() => { setSelectedAeId(undefined); setShowAePicker(false); setShowReactions(true) }}
+                    onClick={() => {
+                      setSelectedAeId(undefined)   // <─ profilo reale: nessun AE
+                      setShowAePicker(false)
+                      setShowReactions(true)
+                    }}
                     className="w-full text-left text-sm px-2 py-1.5 rounded-lg
                                hover:bg-gray-100 dark:hover:bg-gray-700"
                     style={{ color: 'var(--text-primary)' }}
@@ -519,7 +546,11 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                   {alterEgos.map(ae => (
                     <button
                       key={ae.id}
-                      onClick={() => { setSelectedAeId(ae.id); setShowAePicker(false); setShowReactions(true) }}
+                      onClick={() => {
+                        setSelectedAeId(ae.id)       // <─ alter ego specifico
+                        setShowAePicker(false)
+                        setShowReactions(true)
+                      }}
                       className="w-full text-left text-sm px-2 py-1.5 rounded-lg
                                  hover:bg-gray-100 dark:hover:bg-gray-700"
                       style={{ color: 'var(--text-primary)' }}
@@ -534,8 +565,8 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             {/* Popup: scelta reazione */}
             {showReactions && (
               <div
-                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg border flex gap-1 p-2 z-10"
-                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+                className="absolute bottom-full left-0 mb-2 rounded-2xl border flex gap-1 p-2 z-10"
+                style={popupStyle}
               >
                 {REACTIONS.map(r => (
                   <button
