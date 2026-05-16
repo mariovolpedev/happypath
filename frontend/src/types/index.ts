@@ -7,6 +7,9 @@ export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
 export type FeedSortStrategy = 'RECENT' | 'RANDOM' | 'SMART'
 export type FeedItemType = 'CONTENT' | 'COMMENT' | 'REACTION' | 'FOLLOW_EVENT'
 
+// Alias mantenuto per retrocompatibilità
+export type Role = UserRole
+
 export interface UserSummary {
   id: number
   username: string
@@ -113,6 +116,8 @@ export interface MessageResponse {
   sentAt: string
   attachedContent?: MessageContentSummary
   attachedUser?: UserSummary
+  /** URL MinIO dell'immagine allegata al messaggio */
+  imageUrl?: string
 }
 
 export interface Page<T> {

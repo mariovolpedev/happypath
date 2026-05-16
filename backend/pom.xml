@@ -20,6 +20,7 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.5</jjwt.version>
+        <aws.sdk.version>2.25.11</aws.sdk.version>
     </properties>
 
     <dependencies>
@@ -48,6 +49,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
+        <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -65,6 +67,7 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- Database -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -75,6 +78,19 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- AWS S3 SDK (compatibile con MinIO) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- Tika: rilevamento MIME type dei file caricati -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

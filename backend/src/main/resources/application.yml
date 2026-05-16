@@ -32,13 +32,14 @@ spring:
   cache:
     type: redis
     redis:
-      time-to-live: 600000   # 10 minuti default (override per cache specifiche in RedisConfig)
+      time-to-live: 600000   # 10 minuti default
       cache-null-values: false
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 105MB
 
 springdoc:
   swagger-ui:
@@ -59,14 +60,23 @@ server:
   port: 8080
   servlet:
     context-path: "/api"
+
 logging:
   level:
     org:
       springframework: DEBUG
+
 happypath:
   jwt:
     secret: "happypath-super-secret-key-change-in-production-must-be-256-bits-long"
-    expiration-ms: 86400000       # 24 ore
-    refresh-expiration-ms: 604800000  # 7 giorni
-#  cors:
-#    allowed-origins: "http://localhost:5173,http://localhost:3000"
+    expiration-ms: 86400000
+    refresh-expiration-ms: 604800000
+
+# MinIO / S3-compatible storage
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+  bucket: ${MINIO_BUCKET:happypath-media}
+  # URL pubblico usato per costruire i link restituiti al client
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}

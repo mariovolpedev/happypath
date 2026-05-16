@@ -14,17 +14,32 @@ export const sendMessage = (
   text: string,
   senderAlterEgoId?: number,
   attachedContentId?: number,
-  attachedUserId?: number
+  attachedUserId?: number,
+  imageUrl?: string
 ) =>
   api
     .post<MessageResponse>('/messages', {
       recipientId,
-      text,
+      text: text || undefined,
       senderAlterEgoId,
       attachedContentId,
       attachedUserId,
+      imageUrl,
     })
     .then(r => r.data)
+
+/**
+ * Carica un'immagine su MinIO e restituisce il suo URL pubblico.
+ * Da usare prima di sendMessage per ottenere imageUrl.
+ */
+export const uploadMessageImage = async (file: File): Promise<string> => {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await api.post<{ url: string }>('/media/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data.url
+}
 
 export const getConversation = (otherId: number, page = 0) =>
   api

@@ -35,6 +35,12 @@ public class DirectMessage {
     private boolean readByRecipient = false;
 
     /**
+     * Optional: URL of an image uploaded via MinIO and attached to this message.
+     */
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
+
+    /**
      * Optional: ID of a Content the user is sharing inside the message.
      */
     @Column(name = "attached_content_id")
