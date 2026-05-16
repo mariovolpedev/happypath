@@ -73,7 +73,6 @@ public class ContentService {
         }
 
         Content content = contentRepository.save(builder.build());
-        // Nuovo contenuto: invalidiamo la cache di search che potrebbe restituire risultati stantii
         return toResponseSingle(content, author);
     }
 
@@ -136,6 +135,11 @@ public class ContentService {
      * - è personalizzato per utente
      * - è altamente dinamico (nuovi post appaiono continuamente)
      * - un TTL anche breve causerebbe incoerenze evidenti
+     *
+     * Nei feed paginati il campo {@code reactions} è {@code null} per performance:
+     * restituire la lista completa dei reactor per decine di post in un colpo
+     * solo sarebbe eccessivamente costoso. La lista viene popolata solo su
+     * {@code GET /contents/{id}} (toResponseSingle).
      */
     @Transactional(readOnly = true)
     public Page<ContentResponse> getFeed(Pageable pageable, User currentUser) {
@@ -183,10 +187,6 @@ public class ContentService {
      * La chiave è solo l'id numerico: il campo myReaction dipende dall'utente
      * autenticato, quindi NON è inclusa nella cache. Il frontend deve gestire
      * separatamente lo stato della propria reazione se necessario.
-     *
-     * Alternativa sicura: cachechiave = "#id" restituisce la versione
-     * "pubblica" del contenuto (myReaction = null). Se si vuole per-user,
-     * estendere la chiave con "#currentUser?.id" ma attenzione alla memoria.
      */
     @Transactional(readOnly = true)
     @Cacheable(value = RedisConfig.CACHE_CONTENT_SINGLE, key = "#id", unless = "#result == null")
@@ -201,6 +201,11 @@ public class ContentService {
     // Helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Mapping batch per i feed paginati.
+     * Il campo {@code reactions} è deliberatamente {@code null} nei feed:
+     * la lista dei reactor viene popolata solo sul singolo contenuto.
+     */
     private Page<ContentResponse> mapPage(Page<Content> page, User currentUser) {
         List<Content> contents = page.getContent();
         if (contents.isEmpty()) return page.map(c -> toResponseSingle(c, currentUser));
@@ -227,7 +232,8 @@ public class ContentService {
                         reactionTotals.getOrDefault(c.getId(), 0L),
                         commentTotals.getOrDefault(c.getId(), 0L),
                         byType.getOrDefault(c.getId(), Map.of()),
-                        myReactionsFinal.get(c.getId())))
+                        myReactionsFinal.get(c.getId()),
+                        null))   // reactions = null nei feed paginati
                 .toList();
 
         return new PageImpl<>(mapped, page.getPageable(), page.getTotalElements());
@@ -242,11 +248,29 @@ public class ContentService {
         String myReaction = currentUser == null ? null
                 : reactionRepository.findByContentIdsAndUser(ids, currentUser).stream()
                         .findFirst().map(r -> r.getType().name()).orElse(null);
-        return toResponse(c, reactions, comments, byType, myReaction);
+
+        // Fetch della lista completa dei reactor (con JOIN FETCH su user e alterEgo)
+        List<ReactionEntryResponse> reactionEntries = reactionRepository.findByContentIdIn(ids)
+                .stream()
+                .map(this::toReactionEntry)
+                .toList();
+
+        return toResponse(c, reactions, comments, byType, myReaction, reactionEntries);
+    }
+
+    private ReactionEntryResponse toReactionEntry(Reaction r) {
+        AlterEgoResponse aeResp = r.getAlterEgo() != null
+                ? alterEgoService.toResponse(r.getAlterEgo()) : null;
+        return new ReactionEntryResponse(
+                r.getUser().getId(),
+                r.getType().name(),
+                userService.toSummary(r.getUser()),
+                aeResp);
     }
 
     private ContentResponse toResponse(Content c, long reactions, long comments,
-                                       Map<String, Long> byType, String myReaction) {
+                                       Map<String, Long> byType, String myReaction,
+                                       List<ReactionEntryResponse> reactionEntries) {
         AlterEgoResponse aeResp = c.getAlterEgo() != null
                 ? alterEgoService.toResponse(c.getAlterEgo()) : null;
 
@@ -260,7 +284,7 @@ public class ContentService {
                 c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),
                 userService.toSummary(c.getAuthor()), aeResp, themeResp,
                 c.getStatus(), reactions, comments, byType, myReaction,
-                List.of(), c.getCreatedAt(), c.getUpdatedAt());
+                List.of(), reactionEntries, c.getCreatedAt(), c.getUpdatedAt());
     }
 
     public ContentResponse toResponse(Content c, User currentUser) {

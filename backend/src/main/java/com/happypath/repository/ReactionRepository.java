@@ -35,4 +35,14 @@ public interface ReactionRepository extends JpaRepository<Reaction, Long> {
     /** Reactions dell'utente corrente sui content IDs dati — per myReaction bulk */
     @Query("SELECT r FROM Reaction r WHERE r.content.id IN :ids AND r.user = :user")
     List<Reaction> findByContentIdsAndUser(@Param("ids") List<Long> ids, @Param("user") User user);
+
+    /**
+     * Fetch bulk di tutte le reazioni per una lista di content ID.
+     * Join eager su user e alterEgo per evitare N+1 nel mapping.
+     */
+    @Query("SELECT r FROM Reaction r " +
+           "JOIN FETCH r.user " +
+           "LEFT JOIN FETCH r.alterEgo " +
+           "WHERE r.content.id IN :contentIds")
+    List<Reaction> findByContentIdIn(@Param("contentIds") List<Long> contentIds);
 }
