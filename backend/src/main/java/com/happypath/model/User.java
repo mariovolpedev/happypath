@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import jakarta.validation.constraints.Pattern;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +52,10 @@ public class User {
 
     private String avatarUrl;
 
+    @Pattern(regexp = "^#([A-Fa-f0-9]{6})$", message = "Il colore deve essere in formato HEX (#RRGGBB)")
+    @Column(length = 7)
+    private String profileColor;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
@@ -59,6 +64,14 @@ public class User {
     @Column(nullable = false)
     @Builder.Default
     private boolean verified = false;
+
+    /**
+     * Indica se l'account è attivo (non bannato/sospeso).
+     * Usato da HappyPathUserDetails e ModerationService.
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
 
     /**
      * Indica se l'utente ha già completato (o saltato) il tutorial

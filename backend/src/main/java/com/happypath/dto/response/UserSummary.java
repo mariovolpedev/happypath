@@ -15,4 +15,20 @@ public record UserSummary(
         UserRole role,
         boolean verified,
         boolean tutorialCompleted
-) {}
+) {
+    /**
+     * Factory statica di convenienza: costruisce un UserSummary da un'entità User.
+     * Centralizza la mappatura evitando duplicazioni nei service.
+     */
+    public static UserSummary from(com.happypath.model.User u) {
+        return new UserSummary(
+                u.getId(),
+                u.getUsername(),
+                u.getDisplayName(),
+                u.getAvatarUrl(),
+                u.getRole(),
+                u.isVerified(),
+                u.isTutorialCompleted()
+        );
+    }
+}

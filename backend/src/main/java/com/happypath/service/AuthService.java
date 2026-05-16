@@ -50,12 +50,11 @@ public class AuthService {
                 .birthDate(req.birthDate())
                 .birthPlace(req.birthPlace().trim())
                 .gender(req.gender().toUpperCase())
-                // tutorialCompleted defaults to false via @Builder.Default
                 .build();
 
         user = userRepository.save(user);
         String token = jwtUtil.generateToken(new HappyPathUserDetails(user));
-        return new AuthResponse(token, toSummary(user));
+        return new AuthResponse(token, UserSummary.from(user));
     }
 
     public AuthResponse login(LoginRequest req) {
@@ -64,21 +63,15 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(req.username(), req.password()));
             HappyPathUserDetails details = (HappyPathUserDetails) auth.getPrincipal();
             String token = jwtUtil.generateToken(details);
-            return new AuthResponse(token, toSummary(details.getUser()));
+            return new AuthResponse(token, UserSummary.from(details.getUser()));
         } catch (BadCredentialsException e) {
             throw new HappyPathException("Credenziali non valide", HttpStatus.UNAUTHORIZED);
         }
     }
 
+    /** @deprecated Usa {@link UserSummary#from(User)} direttamente */
+    @Deprecated
     public static UserSummary toSummary(User u) {
-        return new UserSummary(
-                u.getId(),
-                u.getUsername(),
-                u.getDisplayName(),
-                u.getAvatarUrl(),
-                u.getRole(),
-                u.isVerified(),
-                u.isTutorialCompleted()
-        );
+        return UserSummary.from(u);
     }
 }
