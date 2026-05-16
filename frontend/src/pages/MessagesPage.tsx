@@ -35,6 +35,7 @@ export default function MessagesPage() {
     if (withUsername) {
       getProfile(withUsername)
         .then((profile) => {
+          // UserProfile estende UserSummary, quindi è già compatibile
           const partner: UserSummary = {
             id: profile.id,
             username: profile.username,
@@ -42,6 +43,7 @@ export default function MessagesPage() {
             avatarUrl: profile.avatarUrl,
             role: profile.role,
             verified: profile.verified,
+            tutorialCompleted: profile.tutorialCompleted,
           }
           setSelectedPartner(partner)
           setMobileShowChat(true)
