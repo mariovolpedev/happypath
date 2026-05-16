@@ -42,7 +42,6 @@ public class FeedService {
         FeedSettings settings = feedSettingsRepository.findByUser(me)
                 .orElseGet(() -> FeedSettings.builder().user(me).build());
 
-        // Guard: se sortStrategy è null (record non ancora persistito) usa SMART
         FeedSortStrategy strategy = settings.getSortStrategy() != null
                 ? settings.getSortStrategy() : FeedSortStrategy.SMART;
 
@@ -58,7 +57,6 @@ public class FeedService {
                     followedUsers, followedThemeIds, ContentStatus.ACTIVE,
                     PageRequest.of(0, FEED_RAW_LIMIT)).getContent();
 
-            // Bulk COUNT per reactions e comments — zero lazy-load
             List<Long> contentIds = contents.stream().map(Content::getId).toList();
             Map<Long, Long> reactionCounts = contentRepository.countReactionsByContentIds(contentIds);
             Map<Long, Long> commentCounts  = contentRepository.countCommentsByContentIds(contentIds);
@@ -164,8 +162,7 @@ public class FeedService {
 
     private UserSummary toUserSummary(User u) {
         if (u == null) return null;
-        return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(),
-                u.getAvatarUrl(), u.getRole(), u.isVerified());
+        return UserSummary.from(u);
     }
 
     private ContentResponse toContentResponse(Content c, long reactions, long comments, Map<String, Long> byType) {
@@ -179,7 +176,7 @@ public class FeedService {
                 c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),
                 toUserSummary(c.getAuthor()), null, theme,
                 c.getStatus(), reactions, comments, byType, null,
-                List.of(), null,   // reactions = null nel feed
+                List.of(), null,
                 c.getCreatedAt(), c.getUpdatedAt());
     }
 
