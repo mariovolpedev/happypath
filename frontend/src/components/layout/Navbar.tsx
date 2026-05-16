@@ -24,8 +24,10 @@ export default function Navbar() {
   const currentTheme = THEME_OPTIONS.find(t => t.mode === mode) ?? THEME_OPTIONS[2]
   const nextTheme    = THEME_OPTIONS[(THEME_OPTIONS.indexOf(currentTheme) + 1) % THEME_OPTIONS.length]
 
-  const pendingVerifCount = usePendingVerifications()
-  const pendingVerif = isModeratorOrAdmin() ? pendingVerifCount : 0
+  // Il fetch viene eseguito SOLO se l'utente è moderatore o admin,
+  // evitando richieste inutili (e 403) per gli utenti normali.
+  const isMod = isModeratorOrAdmin()
+  const pendingVerif = usePendingVerifications(isMod)
 
   const handleLogout = () => { logout(); navigate('/'); setMenuOpen(false) }
 
@@ -144,7 +146,7 @@ export default function Navbar() {
                       <MenuLink to="/alter-egos" onClick={() => setMenuOpen(false)} icon="🎭" label="Alter Ego" />
                     )}
 
-                    {isModeratorOrAdmin() && (
+                    {isMod && (
                       <MenuLinkWithBadge
                         to="/moderation"
                         onClick={() => setMenuOpen(false)}
