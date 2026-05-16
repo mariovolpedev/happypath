@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 import {
-  getProfile, follow, unfollow, getUserContents, updateProfile, uploadAvatar,
+  getProfile, follow, unfollow, removeFollower,
+  getUserContents, updateProfile, uploadAvatar,
   getUserReactions, getUserCommentsActivity,
   getFollowersByUsername, getFollowingByUsername,
   type UserReactionResponse, type UserCommentActivityResponse
@@ -70,29 +71,73 @@ interface EditModalProps {
 
 /* ════════════════════════════════════════════════════════════
    UserListModal  —  modale con lista seguaci o seguiti
+   Mostra il pulsante azione solo se isMe (profilo dell'utente corrente):
+   - Seguaci → "Rimuovi" (rimuove il seguace dalla propria lista)
+   - Seguiti → "Smetti di seguire" (unfollow)
    ════════════════════════════════════════════════════════════ */
 function UserListModal({
   title,
-  users,
+  users: initialUsers,
   loading,
+  modalType,
+  isMe,
   onClose,
+  onCountChange,
 }: {
   title: string
   users: UserSummary[]
   loading: boolean
+  modalType: ModalType
+  isMe: boolean
   onClose: () => void
+  onCountChange: (delta: number) => void
 }) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const navigate   = useNavigate()
+
+  // Lista locale per aggiornamento ottimistico senza ricaricare tutto
+  const [users, setUsers]         = useState<UserSummary[]>(initialUsers)
+  const [pending, setPending]     = useState<Set<number>>(new Set())
+
+  // Sincronizza quando il parent aggiorna la lista (es. dopo caricamento)
+  useEffect(() => { setUsers(initialUsers) }, [initialUsers])
+
   const handleOverlay = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose()
   }
 
-  // Chiude col tasto Esc
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const handleUnfollow = async (u: UserSummary) => {
+    setPending(s => new Set(s).add(u.id))
+    try {
+      await unfollow(u.id)
+      setUsers(prev => prev.filter(x => x.id !== u.id))
+      onCountChange(-1)
+    } finally {
+      setPending(s => { const ns = new Set(s); ns.delete(u.id); return ns })
+    }
+  }
+
+  const handleRemoveFollower = async (u: UserSummary) => {
+    setPending(s => new Set(s).add(u.id))
+    try {
+      await removeFollower(u.id)
+      setUsers(prev => prev.filter(x => x.id !== u.id))
+      onCountChange(-1)
+    } finally {
+      setPending(s => { const ns = new Set(s); ns.delete(u.id); return ns })
+    }
+  }
+
+  const goToProfile = (username: string) => {
+    onClose()
+    navigate(`/u/${username}`)
+  }
 
   return (
     <div
@@ -136,37 +181,67 @@ function UserListModal({
               Nessun utente da mostrare.
             </p>
           ) : (
-            users.map(u => (
-              <Link
-                key={u.id}
-                to={`/profile/${u.username}`}
-                onClick={onClose}
-                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--bg-offset)]"
-              >
-                {/* Avatar */}
+            users.map(u => {
+              const isBusy = pending.has(u.id)
+              return (
                 <div
-                  className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-base font-bold flex-shrink-0"
-                  style={{ backgroundColor: '#22c55e33', color: '#22c55e' }}
+                  key={u.id}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-offset)]"
                 >
-                  {u.avatarUrl ? (
-                    <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
-                  ) : (
-                    u.displayName?.slice(0, 1).toUpperCase() ?? '?'
+                  {/* Avatar + info — cliccabili per andare al profilo */}
+                  <button
+                    onClick={() => goToProfile(u.username)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center
+                                 text-base font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#22c55e33', color: '#22c55e' }}
+                    >
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
+                      ) : (
+                        u.displayName?.slice(0, 1).toUpperCase() ?? '?'
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                          {u.displayName}
+                        </span>
+                        {u.verified && <VerifiedBadge />}
+                      </div>
+                      <span className="text-xs truncate block" style={{ color: 'var(--text-faint)' }}>@{u.username}</span>
+                    </div>
+                  </button>
+
+                  {/* Pulsante azione — solo sul proprio profilo */}
+                  {isMe && (
+                    <button
+                      onClick={() =>
+                        modalType === 'seguiti'
+                          ? handleUnfollow(u)
+                          : handleRemoveFollower(u)
+                      }
+                      disabled={isBusy}
+                      className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40"
+                      style={{
+                        borderColor: modalType === 'seguiti' ? '#f59e0b' : '#ef4444',
+                        color:       modalType === 'seguiti' ? '#d97706' : '#dc2626',
+                      }}
+                    >
+                      {isBusy
+                        ? '…'
+                        : modalType === 'seguiti'
+                        ? 'Smetti'
+                        : 'Rimuovi'
+                      }
+                    </button>
                   )}
                 </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
-                      {u.displayName}
-                    </span>
-                    {u.verified && <VerifiedBadge />}
-                  </div>
-                  <span className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>@{u.username}</span>
-                </div>
-              </Link>
-            ))
+              )
+            })
           )}
         </div>
       </div>
@@ -408,6 +483,17 @@ export default function ProfilePage() {
 
   const closeModal = () => setModalType(null)
 
+  /** Aggiorna il contatore sul profilo dopo un'azione nel modale */
+  const handleModalCountChange = (delta: number) => {
+    if (!profile) return
+    setProfile(p => {
+      if (!p) return p
+      return modalType === 'seguaci'
+        ? { ...p, followersCount: Math.max(0, p.followersCount + delta) }
+        : { ...p, followingCount: Math.max(0, p.followingCount + delta) }
+    })
+  }
+
   const handleTabChange = async (tab: Tab) => {
     setActiveTab(tab)
     if (!username) return
@@ -481,7 +567,10 @@ export default function ProfilePage() {
           }
           users={modalUsers}
           loading={modalLoading}
+          modalType={modalType}
+          isMe={isMe}
           onClose={closeModal}
+          onCountChange={handleModalCountChange}
         />
       )}
 
@@ -740,7 +829,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
   const [loading,       setLoading]       = useState(false)
   const [error,         setError]         = useState('')
 
-  // Avatar upload state
   const [avatarPreview,  setAvatarPreview]  = useState<string | null>(profile.avatarUrl ?? null)
   const [avatarFile,     setAvatarFile]     = useState<File | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -814,7 +902,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* ── Avatar upload ── */}
             <div className="flex items-center gap-4">
               <div className="relative flex-shrink-0">
                 <div
@@ -870,13 +957,11 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
               </div>
             </div>
 
-            {/* ── Display name ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>Nome visualizzato</label>
               <input className="input" placeholder="Il tuo nome" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={100} />
             </div>
 
-            {/* ── Bio ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>
                 Bio <span style={{ color: 'var(--text-faint)' }}>({bio.length}/300)</span>
@@ -884,7 +969,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
               <textarea className="input resize-none h-20" placeholder="Raccontaci qualcosa di te... 🌱" value={bio} onChange={e => setBio(e.target.value)} maxLength={300} />
             </div>
 
-            {/* ── Colore profilo ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-2 block" style={{ color: 'var(--text-muted)' }}>Colore profilo</label>
               <div className="flex flex-wrap gap-2 mb-3">

@@ -29,6 +29,13 @@ export const uploadAvatar = async (file: File): Promise<string> => {
 export const follow = (id: number) => api.post(`/users/${id}/follow`)
 export const unfollow = (id: number) => api.delete(`/users/${id}/follow`)
 
+/**
+ * Rimuove un seguace dalla propria lista.
+ * Chiama DELETE /users/{followerId}/followers/me
+ */
+export const removeFollower = (followerId: number) =>
+  api.delete(`/users/${followerId}/followers/me`)
+
 export const search = (q: string) =>
   api.get<UserSummary[]>('/users/search', { params: { q } }).then(r => r.data)
 

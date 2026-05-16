@@ -39,13 +39,6 @@ public class UserService {
                 .orElseThrow(() -> new HappyPathException("Utente non trovato", HttpStatus.NOT_FOUND));
     }
 
-    /**
-     * Profilo pubblico utente — cachato 5 minuti.
-     *
-     * La chiave combina username + currentUser (può essere null per utenti anonimi).
-     * I campi isFollowed e isBlocked dipendono dall'utente autenticato, quindi
-     * includiamo il suo ID nella chiave per evitare cross-user cache pollution.
-     */
     @Cacheable(
             value = RedisConfig.CACHE_USER_PROFILE,
             key = "#username + ':' + (#currentUser != null ? #currentUser.id : 'anon')")
@@ -60,9 +53,6 @@ public class UserService {
         return toProfile(target, followers, following, isFollowed, isBlocked);
     }
 
-    /**
-     * Aggiornamento profilo: invalida TUTTE le entry dell'utente.
-     */
     @Transactional
     @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
     public UserProfile updateProfile(User user, UpdateProfileRequest req) {
@@ -74,9 +64,6 @@ public class UserService {
         return getProfile(user.getUsername(), user);
     }
 
-    /**
-     * Follow: il conteggio seguaci del target e il flag isFollowed cambiano.
-     */
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
@@ -111,6 +98,19 @@ public class UserService {
         User target = findById(targetId);
         Follow follow = followRepository.findByFollowerAndFollowed(follower, target)
                 .orElseThrow(() -> new HappyPathException("Non segui questo utente", HttpStatus.BAD_REQUEST));
+        followRepository.delete(follow);
+    }
+
+    /**
+     * Rimuove un seguace: l'utente con id followerId smette di seguire `owner`.
+     * Usato quando l'owner vuole rimuovere qualcuno dalla propria lista seguaci.
+     */
+    @Transactional
+    @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
+    public void removeFollower(User owner, Long followerId) {
+        User follower = findById(followerId);
+        Follow follow = followRepository.findByFollowerAndFollowed(follower, owner)
+                .orElseThrow(() -> new HappyPathException("Questo utente non ti segue", HttpStatus.BAD_REQUEST));
         followRepository.delete(follow);
     }
 
