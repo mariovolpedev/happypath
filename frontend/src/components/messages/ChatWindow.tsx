@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import type { MessageResponse, UserSummary, AlterEgoResponse } from '../../types'
-import { getConversation, sendMessage, markConversationAsRead } from '../../api/messages'
+import { getConversation, sendMessage, markConversationAsRead, uploadMessageImage } from '../../api/messages'
 import { getMyAlterEgos } from '../../api/alterEgos'
 import MessageBubble from './MessageBubble'
 import ShareModal from './ShareModal'
@@ -26,6 +26,13 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
   const [pendingAttachment, setPendingAttachment] = useState<{
     type: 'content' | 'profile'; id: number; label: string
   } | null>(null)
+
+  // --- Image attachment state ---
+  const [pendingImage,      setPendingImage]      = useState<File | null>(null)
+  const [imagePreviewUrl,   setImagePreviewUrl]   = useState<string | null>(null)
+  const [uploadingImage,    setUploadingImage]    = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -41,23 +48,51 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Genera preview locale quando l'utente sceglie un file
+  useEffect(() => {
+    if (!pendingImage) { setImagePreviewUrl(null); return }
+    const url = URL.createObjectURL(pendingImage)
+    setImagePreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [pendingImage])
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset per permettere ri-selezione dello stesso file
+    e.target.value = ''
+    setPendingImage(file)
+  }
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!text.trim() && !pendingAttachment) return
+    if (!text.trim() && !pendingAttachment && !pendingImage) return
     setSending(true)
     try {
+      let imageUrl: string | undefined
+
+      // Upload immagine se presente
+      if (pendingImage) {
+        setUploadingImage(true)
+        imageUrl = await uploadMessageImage(pendingImage)
+        setUploadingImage(false)
+      }
+
       const msg = await sendMessage(
         partner.id,
-        text.trim() || '👇',
+        text.trim(),
         senderAeId,
         pendingAttachment?.type === 'content' ? pendingAttachment.id : undefined,
-        pendingAttachment?.type === 'profile' ? pendingAttachment.id : undefined
+        pendingAttachment?.type === 'profile' ? pendingAttachment.id : undefined,
+        imageUrl
       )
       setMessages(prev => [...prev, msg])
       setText('')
       setPendingAttachment(null)
+      setPendingImage(null)
       onMessageSent?.()
     } catch (err: any) {
+      setUploadingImage(false)
       alert(err.response?.data?.message ?? 'Errore invio messaggio')
     } finally {
       setSending(false)
@@ -70,6 +105,7 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
   }
 
   const selectedAe = myAlterEgos.find(a => a.id === senderAeId)
+  const canSend = !sending && (!!text.trim() || !!pendingAttachment || !!pendingImage)
 
   return (
     <div className="flex flex-col h-full">
@@ -109,7 +145,7 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
         <div ref={bottomRef} />
       </div>
 
-      {/* Allegato in attesa */}
+      {/* Allegato contenuto/profilo in attesa */}
       {pendingAttachment && (
         <div className="px-4 py-2 border-t flex items-center gap-2"
           style={{ backgroundColor: 'var(--bg-base)', borderColor: 'var(--border)' }}>
@@ -118,6 +154,33 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
           </span>
           <button onClick={() => setPendingAttachment(null)}
             className="text-xs text-red-400 hover:text-red-600">✕ rimuovi</button>
+        </div>
+      )}
+
+      {/* Preview immagine in attesa */}
+      {imagePreviewUrl && (
+        <div className="px-4 py-2 border-t flex items-center gap-3"
+          style={{ backgroundColor: 'var(--bg-base)', borderColor: 'var(--border)' }}>
+          <img
+            src={imagePreviewUrl}
+            alt="Anteprima"
+            className="h-16 w-16 object-cover rounded-lg border flex-shrink-0"
+            style={{ borderColor: 'var(--border)' }}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+              {pendingImage?.name}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+              {pendingImage ? (pendingImage.size / 1024).toFixed(0) + ' KB' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setPendingImage(null)}
+            className="text-xs text-red-400 hover:text-red-600 flex-shrink-0"
+          >
+            ✕ rimuovi
+          </button>
         </div>
       )}
 
@@ -142,17 +205,52 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
         )}
 
         <div className="flex items-end gap-2">
-          <button type="button" onClick={() => setShowShare(true)}
+          {/* Pulsante allega contenuto/profilo */}
+          <button
+            type="button"
+            onClick={() => setShowShare(true)}
             title="Condividi contenuto o profilo"
-            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full
-                       transition-colors text-lg"
-            style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-muted)' }}>
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-colors text-lg"
+            style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-muted)' }}
+          >
             📎
           </button>
 
+          {/* Pulsante allega immagine */}
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            title="Allega immagine"
+            disabled={uploadingImage}
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-colors text-lg"
+            style={{
+              backgroundColor: pendingImage ? 'var(--color-primary, #01696f)' : 'var(--bg-base)',
+              color: pendingImage ? 'white' : 'var(--text-muted)',
+            }}
+          >
+            {uploadingImage ? (
+              <span className="animate-spin text-xs">⏳</span>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                className="w-4 h-4">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            )}
+          </button>
+
+          {/* Input file nascosto */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+
           <textarea
-            className="input flex-1 resize-none h-10 min-h-[2.5rem] max-h-32 py-2 text-sm
-                       leading-5 overflow-auto"
+            className="input flex-1 resize-none h-10 min-h-[2.5rem] max-h-32 py-2 text-sm leading-5 overflow-auto"
             placeholder={`Messaggio${selectedAe ? ` come ${selectedAe.name}` : ''} a ${partner.displayName}…`}
             value={text}
             onChange={e => {
@@ -166,11 +264,12 @@ export default function ChatWindow({ partner, currentUserId, onMessageSent }: Pr
             maxLength={2000}
           />
 
-          <button type="submit"
-            disabled={sending || (!text.trim() && !pendingAttachment)}
-            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full
-                       bg-happy-500 hover:bg-happy-600 text-white disabled:opacity-40 transition-colors"
-            title="Invia (Enter)">
+          <button
+            type="submit"
+            disabled={!canSend}
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-happy-500 hover:bg-happy-600 text-white disabled:opacity-40 transition-colors"
+            title="Invia (Enter)"
+          >
             {sending ? (
               <span className="animate-spin text-xs">⏳</span>
             ) : (

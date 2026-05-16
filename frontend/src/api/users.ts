@@ -12,6 +12,20 @@ export const updateProfile = (data: {
 }) =>
   api.patch<UserProfile>('/users/me', data).then(r => r.data)
 
+/**
+ * Carica un file immagine come avatar del profilo.
+ * Chiama POST /users/me/avatar (multipart/form-data)
+ * e restituisce l'URL pubblico MinIO del nuovo avatar.
+ */
+export const uploadAvatar = async (file: File): Promise<string> => {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await api.post<{ url: string }>('/users/me/avatar', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data.url
+}
+
 export const follow = (id: number) => api.post(`/users/${id}/follow`)
 export const unfollow = (id: number) => api.delete(`/users/${id}/follow`)
 

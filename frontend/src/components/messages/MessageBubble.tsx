@@ -51,6 +51,22 @@ export default function MessageBubble({ message, isOwn }: Props) {
           </div>
         )}
 
+        {/* Immagine allegata */}
+        {message.imageUrl && (
+          <div className={`rounded-2xl overflow-hidden shadow-sm ${
+            isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm'
+          }`}>
+            <a href={message.imageUrl} target="_blank" rel="noopener noreferrer">
+              <img
+                src={message.imageUrl}
+                alt="Immagine"
+                loading="lazy"
+                className="max-w-[260px] max-h-[320px] w-full object-cover block cursor-zoom-in"
+              />
+            </a>
+          </div>
+        )}
+
         {/* Contenuto allegato */}
         {message.attachedContent && (
           <Link to={`/content/${message.attachedContent.id}`}
