@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getMyFollowers, getMyFollowing, uploadAvatar } from '../api/users'
+import { getMyFollowers, getMyFollowing } from '../api/users'
 import { getBlockedUsers, unblockUser } from '../api/blocks'
 import type { UserSummary, ReportStatus, ReportTarget } from '../types'
 import Avatar from '../components/common/Avatar'
 import Spinner from '../components/common/Spinner'
 import api from '../api/client'
-import { useAuthStore } from '../store/authStore'
 
-type Tab = 'profile' | 'connections' | 'blocked' | 'reports'
+type Tab = 'connections' | 'blocked' | 'reports'
 
 interface ReportItem {
   id: number
@@ -53,125 +52,8 @@ function UserRow({ user, action }: { user: UserSummary; action?: React.ReactNode
   )
 }
 
-// ── Avatar Upload Section ──────────────────────────────────────────────────────
-function AvatarUploadSection() {
-  const user    = useAuthStore(s => s.user)
-  const setUser = useAuthStore(s => s.setUser)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [preview,   setPreview]   = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [success,   setSuccess]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-    setPreview(URL.createObjectURL(file))
-    setSuccess(false)
-    setError(null)
-    handleUpload(file)
-  }
-
-  const handleUpload = async (file: File) => {
-    setUploading(true)
-    setError(null)
-    try {
-      const newUrl = await uploadAvatar(file)
-      if (user) setUser({ ...user, avatarUrl: newUrl })
-      setSuccess(true)
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Errore durante il caricamento')
-      setPreview(null)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  // Cleanup object URL on unmount / change
-  useEffect(() => {
-    return () => { if (preview) URL.revokeObjectURL(preview) }
-  }, [preview])
-
-  const currentAvatar = preview ?? user?.avatarUrl
-
-  return (
-    <div className="card mb-6">
-      <h2 className="font-display font-bold text-base mb-4" style={{ color: 'var(--text-primary)' }}>
-        🖼️ Immagine del profilo
-      </h2>
-
-      <div className="flex items-center gap-5">
-        {/* Avatar attuale / preview */}
-        <div className="relative flex-shrink-0">
-          <div
-            className="w-20 h-20 rounded-full overflow-hidden border-2 flex items-center justify-center"
-            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-base)' }}
-          >
-            {currentAvatar ? (
-              <img src={currentAvatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-3xl">👤</span>
-            )}
-          </div>
-          {uploading && (
-            <div
-              className="absolute inset-0 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-            >
-              <span className="animate-spin text-white text-xl">⏳</span>
-            </div>
-          )}
-        </div>
-
-        {/* Testi e pulsante */}
-        <div className="flex-1">
-          <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-            {user?.displayName}
-          </p>
-          <p className="text-xs mb-3" style={{ color: 'var(--text-faint)' }}>
-            Formati supportati: JPG, PNG, GIF, WebP · Max 10 MB
-          </p>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50"
-          >
-            {uploading ? 'Caricamento…' : 'Cambia foto'}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-        </div>
-      </div>
-
-      {success && (
-        <div
-          className="mt-3 flex items-center gap-2 text-sm rounded-lg px-3 py-2"
-          style={{ backgroundColor: 'var(--color-success-highlight,#d4dfcc)', color: 'var(--color-success,#437a22)' }}
-        >
-          ✅ Avatar aggiornato con successo!
-        </div>
-      )}
-      {error && (
-        <div className="mt-3 flex items-center gap-2 text-sm rounded-lg px-3 py-2"
-             style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}>
-          ⚠️ {error}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Main Component ─────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('profile')
+  const [activeTab, setActiveTab] = useState<Tab>('connections')
   const [followers, setFollowers] = useState<UserSummary[]>([])
   const [following, setFollowing] = useState<UserSummary[]>([])
   const [blocked,   setBlocked]   = useState<UserSummary[]>([])
@@ -207,7 +89,6 @@ export default function SettingsPage() {
   }
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'profile',     label: 'Profilo',      icon: '🖼️' },
     { key: 'connections', label: 'Connessioni',  icon: '👥' },
     { key: 'blocked',     label: 'Bloccati',     icon: '🚫' },
     { key: 'reports',     label: 'Segnalazioni', icon: '🚩' },
@@ -216,7 +97,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="font-display font-bold text-2xl mb-6" style={{ color: 'var(--text-primary)' }}>
-        ⚙️ Impostazioni profilo
+        ⚙️ Impostazioni
       </h1>
 
       {/* Tab bar */}
@@ -241,9 +122,6 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* ── Profilo ── */}
-      {activeTab === 'profile' && <AvatarUploadSection />}
-
       {/* ── Connessioni ── */}
       {activeTab === 'connections' && (
         <div className="space-y-5">
@@ -261,7 +139,6 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
-
               <div className="card">
                 <h2 className="font-display font-bold text-base mb-3" style={{ color: 'var(--text-primary)' }}>
                   ➡️ Seguiti <span className="text-happy-600 ml-1">{following.length}</span>

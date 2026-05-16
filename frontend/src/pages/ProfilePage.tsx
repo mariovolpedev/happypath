@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 import {
-  getProfile, follow, unfollow, getUserContents, updateProfile,
+  getProfile, follow, unfollow, getUserContents, updateProfile, uploadAvatar,
   getUserReactions, getUserCommentsActivity,
   type UserReactionResponse, type UserCommentActivityResponse
 } from '../api/users'
@@ -571,31 +571,60 @@ export default function ProfilePage() {
    EditProfileModal
    ════════════════════════════════════════════════════════════ */
 function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
-  const [displayName,  setDisplayName]  = useState(profile.displayName ?? '')
-  const [bio,          setBio]          = useState(profile.bio ?? '')
-  const [avatarUrl,    setAvatarUrl]    = useState(profile.avatarUrl ?? '')
-  const [profileColor, setProfileColor] = useState(profile.profileColor ?? PROFILE_COLORS[0].hex)
-  const [customColor,  setCustomColor]  = useState(profile.profileColor ?? PROFILE_COLORS[0].hex)
-  const [loading,      setLoading]      = useState(false)
-  const [error,        setError]        = useState('')
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const setUser = useAuthStore(s => s.setUser)
 
+  const [displayName,   setDisplayName]   = useState(profile.displayName ?? '')
+  const [bio,           setBio]           = useState(profile.bio ?? '')
+  const [profileColor,  setProfileColor]  = useState(profile.profileColor ?? PROFILE_COLORS[0].hex)
+  const [customColor,   setCustomColor]   = useState(profile.profileColor ?? PROFILE_COLORS[0].hex)
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState('')
+
+  // Avatar upload state
+  const [avatarPreview,  setAvatarPreview]  = useState<string | null>(profile.avatarUrl ?? null)
+  const [avatarFile,     setAvatarFile]     = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const overlayRef = useRef<HTMLDivElement>(null)
   const handleOverlay = (e: React.MouseEvent) => { if (e.target === overlayRef.current) onClose() }
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setAvatarFile(file)
+    // Mostra preview locale immediata
+    const localUrl = URL.createObjectURL(file)
+    setAvatarPreview(localUrl)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
+      let finalAvatarUrl: string | undefined = profile.avatarUrl
+
+      // Carica il file su MinIO se l'utente ne ha selezionato uno nuovo
+      if (avatarFile) {
+        setUploadingAvatar(true)
+        finalAvatarUrl = await uploadAvatar(avatarFile)
+        setUploadingAvatar(false)
+      }
+
       const updated = await updateProfile({
         displayName: displayName || undefined,
         bio: bio || undefined,
-        avatarUrl: avatarUrl || undefined,
+        avatarUrl: finalAvatarUrl,
         profileColor: profileColor || undefined,
       })
+      // Aggiorna lo store auth con il nuovo avatarUrl
+      setUser({ ...updated })
       onSaved(updated)
       onClose()
     } catch {
+      setUploadingAvatar(false)
       setError('Errore durante il salvataggio. Riprova.')
     } finally {
       setLoading(false)
@@ -603,6 +632,7 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
   }
 
   const isPreset = PROFILE_COLORS.some(c => c.hex === profileColor)
+  const isBusy   = loading || uploadingAvatar
 
   return (
     <div
@@ -619,59 +649,127 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-display font-bold text-xl" style={{ color: 'var(--text-primary)' }}>✏️ Modifica profilo</h2>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800" style={{ color: 'var(--text-faint)' }}>✕</button>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+              style={{ color: 'var(--text-faint)' }}
+            >✕</button>
           </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* ── Avatar upload ── */}
             <div className="flex items-center gap-4">
-              <div
-                className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-2xl font-bold"
-                style={{ border: `3px solid ${profileColor}`, backgroundColor: profileColor + '22' }}
-              >
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                ) : (
-                  <span style={{ color: profileColor }}>{displayName?.slice(0, 1).toUpperCase() || '?'}</span>
+              {/* Preview avatar */}
+              <div className="relative flex-shrink-0">
+                <div
+                  className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-2xl font-bold"
+                  style={{ border: `3px solid ${profileColor}`, backgroundColor: profileColor + '22' }}
+                >
+                  {avatarPreview ? (
+                    <img
+                      src={avatarPreview}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    />
+                  ) : (
+                    <span style={{ color: profileColor }}>{displayName?.slice(0, 1).toUpperCase() || '?'}</span>
+                  )}
+                </div>
+                {uploadingAvatar && (
+                  <div
+                    className="absolute inset-0 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+                  >
+                    <span className="animate-spin text-white text-sm">⏳</span>
+                  </div>
                 )}
               </div>
+
+              {/* Pulsante selezione file */}
               <div className="flex-1">
-                <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>URL immagine profilo</label>
-                <input className="input text-sm" placeholder="https://esempio.com/mia-foto.jpg" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} />
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide mb-1 block"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Immagine profilo
+                </label>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isBusy}
+                  className="btn-secondary text-sm px-4 py-1.5 disabled:opacity-50"
+                >
+                  {avatarFile ? `📎 ${avatarFile.name}` : '📂 Scegli file…'}
+                </button>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
+                  JPG, PNG, GIF, WebP · Max 10 MB
+                </p>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarSelect}
+                />
               </div>
             </div>
+
+            {/* ── Display name ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>Nome visualizzato</label>
               <input className="input" placeholder="Il tuo nome" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={100} />
             </div>
+
+            {/* ── Bio ── */}
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>Bio <span style={{ color: 'var(--text-faint)' }}>({bio.length}/300)</span></label>
+              <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                Bio <span style={{ color: 'var(--text-faint)' }}>({bio.length}/300)</span>
+              </label>
               <textarea className="input resize-none h-20" placeholder="Raccontaci qualcosa di te... 🌱" value={bio} onChange={e => setBio(e.target.value)} maxLength={300} />
             </div>
+
+            {/* ── Colore profilo ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-2 block" style={{ color: 'var(--text-muted)' }}>Colore profilo</label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {PROFILE_COLORS.map(c => (
-                  <ColorSwatch key={c.hex} hex={c.hex} label={c.label} selected={profileColor === c.hex} onClick={() => { setProfileColor(c.hex); setCustomColor(c.hex) }} />
+                  <ColorSwatch
+                    key={c.hex}
+                    hex={c.hex}
+                    label={c.label}
+                    selected={profileColor === c.hex}
+                    onClick={() => { setProfileColor(c.hex); setCustomColor(c.hex) }}
+                  />
                 ))}
                 <label
                   title="Colore personalizzato"
                   className="relative w-8 h-8 rounded-full overflow-hidden cursor-pointer transition-transform hover:scale-110"
                   style={{ border: '2px dashed var(--border)', boxShadow: !isPreset ? `0 0 0 3px white, 0 0 0 5px ${profileColor}` : 'none' }}
                 >
-                  <input type="color" value={customColor} onChange={e => { setCustomColor(e.target.value); setProfileColor(e.target.value) }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <input
+                    type="color"
+                    value={customColor}
+                    onChange={e => { setCustomColor(e.target.value); setProfileColor(e.target.value) }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
                   <span className="absolute inset-0 flex items-center justify-center text-xs pointer-events-none select-none">🎨</span>
                 </label>
               </div>
               <div className="h-1.5 rounded-full transition-colors duration-200" style={{ backgroundColor: profileColor }} />
             </div>
+
             {error && <p className="text-red-500 text-sm">{error}</p>}
+
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Annulla</button>
               <button
-                type="submit" disabled={loading}
+                type="submit"
+                disabled={isBusy}
                 className="flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 text-white font-semibold rounded-full transition-all shadow-sm disabled:opacity-50"
                 style={{ backgroundColor: profileColor }}
               >
-                {loading ? 'Salvataggio…' : '💾 Salva modifiche'}
+                {uploadingAvatar ? 'Caricamento immagine…' : loading ? 'Salvataggio…' : '💾 Salva modifiche'}
               </button>
             </div>
           </form>
