@@ -63,8 +63,9 @@ function ChangePublisherInline({
     return (
       <button
         onClick={openPicker}
-        className="w-full text-left px-4 py-2.5 text-sm text-gray-600
-                   hover:bg-gray-50 flex items-center gap-2"
+        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2
+                   hover:bg-gray-100 dark:hover:bg-gray-700"
+        style={{ color: 'var(--text-muted)' }}
       >
         🎭 Cambia profilo
       </button>
@@ -73,14 +74,16 @@ function ChangePublisherInline({
 
   return (
     <div className="px-3 py-2">
-      <p className="text-xs text-gray-400 mb-2">Pubblica come:</p>
+      <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>Pubblica come:</p>
       <div className="space-y-1">
         <button
           onClick={() => pick(null)}
           disabled={saving}
-          className={`w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50 flex items-center gap-2 ${
-            !currentAlterEgoId ? 'font-semibold text-happy-700' : 'text-gray-600'
+          className={`w-full text-left text-sm px-2 py-1.5 rounded-lg
+                      hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
+            !currentAlterEgoId ? 'font-semibold text-happy-700' : ''
           }`}
+          style={currentAlterEgoId ? { color: 'var(--text-muted)' } : {}}
         >
           👤 {user?.displayName}
           {!currentAlterEgoId && (
@@ -93,9 +96,11 @@ function ChangePublisherInline({
             key={ae.id}
             onClick={() => pick(ae.id)}
             disabled={saving}
-            className={`w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50 flex items-center gap-2 ${
-              currentAlterEgoId === ae.id ? 'font-semibold text-purple-700' : 'text-gray-600'
+            className={`w-full text-left text-sm px-2 py-1.5 rounded-lg
+                        hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
+              currentAlterEgoId === ae.id ? 'font-semibold text-purple-700' : ''
             }`}
+            style={currentAlterEgoId !== ae.id ? { color: 'var(--text-muted)' } : {}}
           >
             {ae.avatarUrl ? (
               <img src={ae.avatarUrl} alt={ae.name} className="w-4 h-4 rounded-full object-cover" />
@@ -109,7 +114,7 @@ function ChangePublisherInline({
           </button>
         ))}
       </div>
-      {saving && <p className="text-xs text-gray-400 mt-2 text-center">Salvataggio...</p>}
+      {saving && <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-faint)' }}>Salvataggio...</p>}
     </div>
   )
 }
@@ -123,6 +128,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
   const [alterEgos,      setAlterEgos]      = useState<AlterEgoResponse[]>([])
   const [selectedAeId,   setSelectedAeId]   = useState<number | undefined>()
   const [showAePicker,   setShowAePicker]   = useState(false)
+  const [showReactors,   setShowReactors]   = useState(false)
   const { user, isAuthenticated }           = useAuthStore()
 
   const isAuthor     = user?.id === content.author.id
@@ -243,23 +249,29 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(s => !s)}
-                  className="text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center
-                             justify-center rounded-full hover:bg-gray-100"
+                  className="w-7 h-7 flex items-center justify-center rounded-full
+                             hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  style={{ color: 'var(--text-faint)' }}
                   aria-label="Opzioni"
                 >
                   ⋯
                 </button>
                 {showMenu && (
                   <div
-                    className="absolute right-0 top-full mt-1 bg-white border border-gray-100
-                               rounded-xl shadow-lg z-20 min-w-[190px] overflow-hidden"
+                    className="absolute right-0 top-full mt-1 rounded-xl shadow-lg z-20
+                               min-w-[190px] overflow-hidden border"
+                    style={{
+                      backgroundColor: 'var(--surface)',
+                      borderColor: 'var(--border)',
+                    }}
                     onMouseLeave={() => setShowMenu(false)}
                   >
                     {canReport && (
                       <button
                         onClick={() => { setShowReport(true); setShowMenu(false) }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-600
-                                   hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2
+                                   hover:bg-gray-100 dark:hover:bg-gray-700"
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         🚩 Segnala
                       </button>
@@ -267,7 +279,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                     {canChangePublisher && (
                       <>
                         {(canReport || canDelete) && (
-                          <div className="border-t border-gray-100" />
+                          <div className="border-t" style={{ borderColor: 'var(--border)' }} />
                         )}
                         <ChangePublisherInline
                           contentId={content.id}
@@ -279,11 +291,11 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                     )}
                     {canDelete && (
                       <>
-                        <div className="border-t border-gray-100" />
+                        <div className="border-t" style={{ borderColor: 'var(--border)' }} />
                         <button
                           onClick={() => { onDelete!(content.id); setShowMenu(false) }}
                           className="w-full text-left px-4 py-2.5 text-sm text-red-500
-                                     hover:bg-red-50 flex items-center gap-2"
+                                     hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                         >
                           🗑️ Elimina
                         </button>
@@ -326,13 +338,15 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
         </Link>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 flex-wrap">
+        <div className="flex items-center gap-3 mt-4 pt-3 border-t flex-wrap"
+          style={{ borderColor: 'var(--border)' }}>
           <div className="relative">
             <button
               onClick={handleReactClick}
               className={`flex items-center gap-1.5 text-sm rounded-full px-3 py-1.5 transition-colors ${
-                content.myReaction ? 'bg-pink-50 text-pink-600' : 'text-gray-500 hover:bg-gray-100'
+                content.myReaction ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
+              style={!content.myReaction ? { color: 'var(--text-faint)' } : {}}
             >
               {content.myReaction
                 ? (REACTIONS.find(r => r.type === content.myReaction)?.emoji ?? '❤️')
@@ -340,10 +354,15 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               {content.reactionsCount}
             </button>
 
+            {/* Popup: scegli alter ego */}
             {showAePicker && (
               <div
-                className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
-                           border border-gray-100 p-3 z-10 min-w-[180px]"
+                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg
+                           border p-3 z-10 min-w-[180px]"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                }}
               >
                 <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>
                   Reagisci come:
@@ -351,7 +370,9 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                 <div className="space-y-1 mb-2">
                   <button
                     onClick={() => { setSelectedAeId(undefined); setShowAePicker(false); setShowReactions(true) }}
-                    className="w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50"
+                    className="w-full text-left text-sm px-2 py-1.5 rounded-lg
+                               hover:bg-gray-100 dark:hover:bg-gray-700"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     👤 {user?.displayName}
                   </button>
@@ -359,7 +380,9 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                     <button
                       key={ae.id}
                       onClick={() => { setSelectedAeId(ae.id); setShowAePicker(false); setShowReactions(true) }}
-                      className="w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50"
+                      className="w-full text-left text-sm px-2 py-1.5 rounded-lg
+                                 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      style={{ color: 'var(--text-primary)' }}
                     >
                       🎭 {ae.name}
                     </button>
@@ -368,17 +391,23 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               </div>
             )}
 
+            {/* Popup: scelta reazione */}
             {showReactions && (
               <div
-                className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
-                           border border-gray-100 flex gap-1 p-2 z-10"
+                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg
+                           border flex gap-1 p-2 z-10"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                }}
               >
                 {REACTIONS.map(r => (
                   <button
                     key={r.type}
                     onClick={() => doReact(r.type)}
-                    className={`text-xl p-1.5 rounded-xl hover:bg-gray-100 transition-colors ${
-                      content.myReaction === r.type ? 'bg-pink-50' : ''
+                    className={`text-xl p-1.5 rounded-xl transition-colors
+                                hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      content.myReaction === r.type ? 'bg-pink-50 dark:bg-pink-900/30' : ''
                     }`}
                     title={r.type}
                   >
@@ -389,15 +418,66 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             )}
           </div>
 
+          {/* Contatore reazioni cliccabile → mostra chi ha reagito */}
+          {content.reactionsCount > 0 && (
+            <button
+              onClick={() => setShowReactors(s => !s)}
+              className="text-xs rounded-full px-2 py-0.5 transition-colors
+                         hover:bg-gray-100 dark:hover:bg-gray-700"
+              style={{ color: 'var(--text-faint)' }}
+              title="Vedi chi ha reagito"
+            >
+              👥 {content.reactionsCount}
+            </button>
+          )}
+
           <Link
             to={`/content/${content.id}#comments`}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-happy-600"
+            className="flex items-center gap-1.5 text-sm hover:text-happy-600"
+            style={{ color: 'var(--text-faint)' }}
           >
             💬 {content.commentsCount}
           </Link>
 
           <ShareContentButton contentId={content.id} contentTitle={content.title} />
         </div>
+
+        {/* Pannello lista reactor */}
+        {showReactors && content.reactions && content.reactions.length > 0 && (
+          <div
+            className="mt-3 pt-3 border-t"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-faint)' }}>
+              Chi ha reagito:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {content.reactions.map((r: any) => (
+                <Link
+                  key={`${r.userId}-${r.type}`}
+                  to={r.alterEgo ? `/ae/${r.alterEgo.id}` : `/u/${r.user.username}`}
+                  className="flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1
+                             hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  style={{
+                    backgroundColor: 'var(--surface-raised, var(--surface))',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  {r.alterEgo ? (
+                    r.alterEgo.avatarUrl
+                      ? <img src={r.alterEgo.avatarUrl} alt={r.alterEgo.name} className="w-4 h-4 rounded-full" />
+                      : <span>🎭</span>
+                  ) : (
+                    <Avatar user={r.user} size="xs" />
+                  )}
+                  <span>{r.alterEgo ? r.alterEgo.name : r.user.displayName}</span>
+                  <span>{REACTIONS.find(rx => rx.type === r.type)?.emoji ?? '❤️'}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </article>
 
       {showReport && (
