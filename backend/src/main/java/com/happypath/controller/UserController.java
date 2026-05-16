@@ -1,17 +1,22 @@
 package com.happypath.controller;
 
 import com.happypath.dto.request.UpdateProfileRequest;
+import com.happypath.dto.response.MediaUploadResponse;
 import com.happypath.dto.response.UserProfile;
 import com.happypath.dto.response.UserSummary;
 import com.happypath.model.User;
 import com.happypath.security.HappyPathUserDetails;
 import com.happypath.service.BlockService;
+import com.happypath.service.MediaStorageService;
 import com.happypath.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -20,8 +25,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
-    private final BlockService blockService;
+    private final UserService          userService;
+    private final BlockService         blockService;
+    private final MediaStorageService  mediaStorageService;
 
     @GetMapping("/{username}/profile")
     public ResponseEntity<UserProfile> getProfile(
@@ -38,6 +44,28 @@ public class UserController {
         return ResponseEntity.ok(userService.updateProfile(details.getUser(), req));
     }
 
+    /**
+     * Carica un'immagine come avatar profilo direttamente su MinIO
+     * e aggiorna immediatamente il campo avatarUrl dell'utente.
+     *
+     * POST /users/me/avatar   (multipart/form-data, campo "file")
+     */
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MediaUploadResponse> uploadAvatar(
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal HappyPathUserDetails details) {
+
+        String url = mediaStorageService.upload(file, "avatars");
+
+        // Aggiorna subito l'avatar dell'utente
+        UpdateProfileRequest req = new UpdateProfileRequest(null, null, url, null);
+        userService.updateProfile(details.getUser(), req);
+
+        String objectKey = extractObjectKey(url);
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                new MediaUploadResponse(url, objectKey, file.getContentType(), file.getSize()));
+    }
+
     @PostMapping("/{id}/follow")
     public ResponseEntity<Void> follow(@PathVariable Long id,
                                        @AuthenticationPrincipal HappyPathUserDetails details) {
@@ -52,7 +80,6 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    /** Blocca un utente: rimuove i follow reciproci e impedisce futuri follow */
     @PostMapping("/{id}/block")
     public ResponseEntity<Void> block(@PathVariable Long id,
                                       @AuthenticationPrincipal HappyPathUserDetails details) {
@@ -60,7 +87,6 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    /** Sblocca un utente precedentemente bloccato */
     @DeleteMapping("/{id}/block")
     public ResponseEntity<Void> unblock(@PathVariable Long id,
                                         @AuthenticationPrincipal HappyPathUserDetails details) {
@@ -68,21 +94,18 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Lista degli utenti bloccati dall'utente corrente */
     @GetMapping("/me/blocked")
     public ResponseEntity<List<UserSummary>> getBlockedUsers(
             @AuthenticationPrincipal HappyPathUserDetails details) {
         return ResponseEntity.ok(blockService.getBlockedUsers(details.getUser()));
     }
 
-    /** Follower dell'utente corrente (chi mi segue) */
     @GetMapping("/me/followers")
     public ResponseEntity<List<UserSummary>> getFollowers(
             @AuthenticationPrincipal HappyPathUserDetails details) {
         return ResponseEntity.ok(userService.getFollowers(details.getUser()));
     }
 
-    /** Utenti seguiti dall'utente corrente */
     @GetMapping("/me/following")
     public ResponseEntity<List<UserSummary>> getFollowing(
             @AuthenticationPrincipal HappyPathUserDetails details) {
@@ -92,5 +115,13 @@ public class UserController {
     @GetMapping("/search")
     public ResponseEntity<List<UserSummary>> search(@RequestParam String q) {
         return ResponseEntity.ok(userService.search(q));
+    }
+
+    // -------------------------------------------------------------------------
+
+    private String extractObjectKey(String fullUrl) {
+        int idx = fullUrl.indexOf("/happypath-media/");
+        if (idx == -1) return fullUrl;
+        return fullUrl.substring(idx + "/happypath-media/".length());
     }
 }

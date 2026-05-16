@@ -11,7 +11,9 @@ public record MessageResponse(
         boolean readByRecipient,
         LocalDateTime sentAt,
         ContentSummary attachedContent,
-        UserSummary attachedUser
+        UserSummary attachedUser,
+        /** URL MinIO dell'immagine allegata al messaggio (null se assente). */
+        String imageUrl
 ) {
     /**
      * Lightweight content summary embedded inside messages.

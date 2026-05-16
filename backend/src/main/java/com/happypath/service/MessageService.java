@@ -40,13 +40,22 @@ public class MessageService {
             throw new HappyPathException(
                     "Non puoi inviare messaggi a questo utente", HttpStatus.FORBIDDEN);
 
+        // Almeno uno tra testo e immagine deve essere presente
+        boolean hasText  = req.text() != null && !req.text().isBlank();
+        boolean hasImage = req.imageUrl() != null && !req.imageUrl().isBlank();
+        boolean hasAttachment = req.attachedContentId() != null || req.attachedUserId() != null;
+        if (!hasText && !hasImage && !hasAttachment)
+            throw new HappyPathException(
+                    "Il messaggio non può essere vuoto", HttpStatus.BAD_REQUEST);
+
         AlterEgo senderAe = alterEgoService.resolveForUser(req.senderAlterEgoId(), sender);
 
         DirectMessage msg = messageRepository.save(DirectMessage.builder()
                 .sender(sender)
                 .senderAlterEgo(senderAe)
                 .recipient(recipient)
-                .text(req.text())
+                .text(hasText ? req.text() : "")
+                .imageUrl(req.imageUrl())
                 .attachedContentId(req.attachedContentId())
                 .attachedUserId(req.attachedUserId())
                 .build());
@@ -72,7 +81,6 @@ public class MessageService {
                 messageRepository.findLatestMessagePerConversation(user.getId());
 
         return latestMessages.stream().map(m -> {
-            // Determine who the "other" participant is
             User partner = m.getSender().getId().equals(user.getId())
                     ? m.getRecipient()
                     : m.getSender();
@@ -148,6 +156,7 @@ public class MessageService {
                 m.isReadByRecipient(),
                 m.getSentAt(),
                 attachedContent,
-                attachedUser);
+                attachedUser,
+                m.getImageUrl());
     }
 }
