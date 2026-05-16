@@ -41,9 +41,13 @@ export default function PublisherPicker({
           onClick={() => onChange(undefined)}
           className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
             selectedAlterEgoId === undefined
-              ? 'border-happy-500 bg-happy-50 text-happy-700 font-medium shadow-sm'
-              : 'border-gray-200 hover:border-gray-300 text-gray-600'
+              ? 'border-happy-500 bg-happy-50 dark:bg-happy-900/30 text-happy-700 font-medium shadow-sm'
+              : 'hover:border-gray-400 dark:hover:border-gray-500'
           }`}
+          style={selectedAlterEgoId !== undefined ? {
+            borderColor: 'var(--border)',
+            color: 'var(--text-muted)',
+          } : {}}
         >
           <Avatar user={user as any} size="sm" />
           <span>👤 {user.displayName}</span>
@@ -60,9 +64,13 @@ export default function PublisherPicker({
             onClick={() => onChange(ae.id)}
             className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
               selectedAlterEgoId === ae.id
-                ? 'border-purple-400 bg-purple-50 text-purple-700 font-medium shadow-sm'
-                : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/30 text-purple-700 font-medium shadow-sm'
+                : 'hover:border-gray-400 dark:hover:border-gray-500'
             }`}
+            style={selectedAlterEgoId !== ae.id ? {
+              borderColor: 'var(--border)',
+              color: 'var(--text-muted)',
+            } : {}}
           >
             {ae.avatarUrl ? (
               <img

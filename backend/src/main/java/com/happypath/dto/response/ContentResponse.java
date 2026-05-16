@@ -19,6 +19,8 @@ public record ContentResponse(
         Map<String, Long> reactionsByType,
         String myReaction,
         List<DedicationInfo> dedications,
+        /** Lista completa delle reazioni con utente e tipo — null nei feed paginati, popolata sul singolo contenuto */
+        List<ReactionEntryResponse> reactions,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

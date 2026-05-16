@@ -25,22 +25,26 @@ interface Props {
   onDelete?: (id: number) => void
 }
 
-// ─── Sotto-componente: cambio publisher inline nel menu ───────────────────────
+// ─── Stile condiviso per popup floating (alter ego picker, reaction picker) ───
+const popupStyle: React.CSSProperties = {
+  backgroundColor: 'var(--bg-card)',
+  borderColor: 'var(--border)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+}
+
+// ─── Cambio publisher inline nel menu ───────────────────────────────────
 function ChangePublisherInline({
-  contentId,
-  currentAlterEgoId,
-  onChanged,
-  onClose,
+  contentId, currentAlterEgoId, onChanged, onClose,
 }: {
   contentId: number
   currentAlterEgoId?: number
   onChanged: (c: ContentResponse) => void
   onClose: () => void
 }) {
-  const [step, setStep]         = useState<'trigger' | 'pick'>('trigger')
+  const [step, setStep]           = useState<'trigger' | 'pick'>('trigger')
   const [alterEgos, setAlterEgos] = useState<AlterEgoResponse[]>([])
-  const [saving, setSaving]     = useState(false)
-  const { user }                = useAuthStore()
+  const [saving, setSaving]       = useState(false)
+  const { user }                  = useAuthStore()
 
   const openPicker = async () => {
     const aes = await getMyAlterEgos().catch(() => [] as AlterEgoResponse[])
@@ -63,8 +67,9 @@ function ChangePublisherInline({
     return (
       <button
         onClick={openPicker}
-        className="w-full text-left px-4 py-2.5 text-sm text-gray-600
-                   hover:bg-gray-50 flex items-center gap-2"
+        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2
+                   hover:bg-gray-100 dark:hover:bg-gray-700"
+        style={{ color: 'var(--text-muted)' }}
       >
         🎭 Cambia profilo
       </button>
@@ -73,35 +78,36 @@ function ChangePublisherInline({
 
   return (
     <div className="px-3 py-2">
-      <p className="text-xs text-gray-400 mb-2">Pubblica come:</p>
+      <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>Pubblica come:</p>
       <div className="space-y-1">
         <button
           onClick={() => pick(null)}
           disabled={saving}
-          className={`w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50 flex items-center gap-2 ${
-            !currentAlterEgoId ? 'font-semibold text-happy-700' : 'text-gray-600'
+          className={`w-full text-left text-sm px-2 py-1.5 rounded-lg
+                      hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
+            !currentAlterEgoId ? 'font-semibold text-happy-700' : ''
           }`}
+          style={currentAlterEgoId ? { color: 'var(--text-muted)' } : {}}
         >
           👤 {user?.displayName}
           {!currentAlterEgoId && (
             <span className="ml-auto text-xs bg-happy-100 text-happy-700 rounded-full px-1.5">attivo</span>
           )}
         </button>
-
         {alterEgos.map(ae => (
           <button
             key={ae.id}
             onClick={() => pick(ae.id)}
             disabled={saving}
-            className={`w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50 flex items-center gap-2 ${
-              currentAlterEgoId === ae.id ? 'font-semibold text-purple-700' : 'text-gray-600'
+            className={`w-full text-left text-sm px-2 py-1.5 rounded-lg
+                        hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
+              currentAlterEgoId === ae.id ? 'font-semibold text-purple-700' : ''
             }`}
+            style={currentAlterEgoId !== ae.id ? { color: 'var(--text-muted)' } : {}}
           >
-            {ae.avatarUrl ? (
-              <img src={ae.avatarUrl} alt={ae.name} className="w-4 h-4 rounded-full object-cover" />
-            ) : (
-              <span>🎭</span>
-            )}
+            {ae.avatarUrl
+              ? <img src={ae.avatarUrl} alt={ae.name} className="w-4 h-4 rounded-full object-cover" />
+              : <span>🎭</span>}
             {ae.name}
             {currentAlterEgoId === ae.id && (
               <span className="ml-auto text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">attivo</span>
@@ -109,26 +115,137 @@ function ChangePublisherInline({
           </button>
         ))}
       </div>
-      {saving && <p className="text-xs text-gray-400 mt-2 text-center">Salvataggio...</p>}
+      {saving && <p className="text-xs mt-2 text-center" style={{ color: 'var(--text-faint)' }}>Salvataggio...</p>}
+    </div>
+  )
+}
+
+// ─── Modal lista reactor — stile Instagram ───────────────────────────────────
+function ReactorsModal({
+  content,
+  onClose,
+}: {
+  content: ContentResponse
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full sm:w-[400px] max-h-[70vh] rounded-t-2xl sm:rounded-2xl
+                   flex flex-col overflow-hidden"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Reazioni · {content.reactionsCount}
+          </span>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full
+                       hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-lg"
+            style={{ color: 'var(--text-faint)' }}
+            aria-label="Chiudi"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Lista */}
+        <div className="overflow-y-auto flex-1 px-2 py-2">
+          {content.reactions && content.reactions.length > 0 ? (
+            content.reactions.map(r => (
+              <Link
+                key={`${r.userId}-${r.type}`}
+                to={r.alterEgo ? `/ae/${r.alterEgo.id}` : `/u/${r.user.username}`}
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
+                           hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {/* Avatar con emoji badge */}
+                <div className="relative flex-shrink-0">
+                  {r.alterEgo ? (
+                    r.alterEgo.avatarUrl
+                      ? <img src={r.alterEgo.avatarUrl} alt={r.alterEgo.name}
+                             className="w-9 h-9 rounded-full object-cover" />
+                      : <span className="w-9 h-9 flex items-center justify-center text-xl">🎭</span>
+                  ) : (
+                    <Avatar user={r.user} size="sm" />
+                  )}
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 text-xs leading-none
+                               w-4 h-4 flex items-center justify-center rounded-full"
+                    style={{ backgroundColor: 'var(--bg-card)' }}
+                  >
+                    {REACTIONS.find(rx => rx.type === r.type)?.emoji ?? '❤️'}
+                  </span>
+                </div>
+
+                {/* Nome */}
+                <div className="flex flex-col min-w-0">
+                  <span
+                    className="text-sm font-medium truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {r.alterEgo ? r.alterEgo.name : r.user.displayName}
+                  </span>
+                  {r.alterEgo && (
+                    <span className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>
+                      via {r.user.displayName}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="flex flex-col items-center py-8 gap-2">
+              <span className="text-3xl">❤️</span>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                Apri il post per vedere chi ha reagito.
+              </p>
+              <Link
+                to={`/content/${content.id}`}
+                onClick={onClose}
+                className="text-sm text-happy-600 hover:underline mt-1"
+              >
+                Vedi post →
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ContentCard({ content: initial, onDelete }: Props) {
-  const [content,        setContent]      = useState(initial)
-  const [showReactions,  setShowReactions]  = useState(false)
-  const [showReport,     setShowReport]     = useState(false)
-  const [showMenu,       setShowMenu]       = useState(false)
-  const [alterEgos,      setAlterEgos]      = useState<AlterEgoResponse[]>([])
-  const [selectedAeId,   setSelectedAeId]   = useState<number | undefined>()
-  const [showAePicker,   setShowAePicker]   = useState(false)
-  const { user, isAuthenticated }           = useAuthStore()
+  const [content,       setContent]     = useState(initial)
+  const [showReactions, setShowReactions] = useState(false)
+  const [showReport,    setShowReport]    = useState(false)
+  const [showMenu,      setShowMenu]      = useState(false)
+  const [alterEgos,     setAlterEgos]     = useState<AlterEgoResponse[]>([])
+  // selectedAeId: undefined = reagisce come se stesso, number = reagisce come AE
+  const [selectedAeId,  setSelectedAeId]  = useState<number | undefined>(undefined)
+  const [showAePicker,  setShowAePicker]  = useState(false)
+  const [showReactors,  setShowReactors]  = useState(false)
+  const { user, isAuthenticated }         = useAuthStore()
 
-  const isAuthor     = user?.id === content.author.id
-  const isModOrAdmin = user?.role === 'MODERATOR' || user?.role === 'ADMIN'
-  const canDelete    = (isAuthor || isModOrAdmin) && !!onDelete
-  const canReport    = isAuthenticated() && !isAuthor
+  const isAuthor           = user?.id === content.author.id
+  const isModOrAdmin       = user?.role === 'MODERATOR' || user?.role === 'ADMIN'
+  const canDelete          = (isAuthor || isModOrAdmin) && !!onDelete
+  const canReport          = isAuthenticated() && !isAuthor
   const canChangePublisher = isAuthor && user?.verified
 
   const displayAuthor = content.alterEgo
@@ -140,11 +257,10 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     if (user?.verified) {
       const aes = await getMyAlterEgos().catch(() => [] as AlterEgoResponse[])
       setAlterEgos(aes)
-      if (aes.length > 0) {
-        setShowAePicker(true)
-        return
-      }
+      if (aes.length > 0) { setShowAePicker(true); return }
     }
+    // Nessun alter ego: resetta sempre a "se stesso" prima di aprire il picker
+    setSelectedAeId(undefined)
     setShowReactions(s => !s)
   }
 
@@ -173,7 +289,32 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     }
     setShowReactions(false)
     setShowAePicker(false)
+    // Reset selectedAeId dopo ogni reazione così la prossima parte da "se stesso"
+    setSelectedAeId(undefined)
   }
+
+  // Label stile Facebook — usa solo user.displayName, MAI alterEgo.name
+  // (l'alter ego è visibile solo nel modal completo)
+  const reactionsLabel = (() => {
+    const n = content.reactionsCount
+    if (n === 0) return null
+    if (content.reactions && content.reactions.length > 0) {
+      // Usa sempre il nome utente reale, indipendentemente dall'alter ego
+      const firstName = content.reactions[0].user.displayName
+      if (n === 1) return firstName
+      if (n === 2) return `${firstName} e un'altra persona`
+      return `${firstName} e altre ${n - 1} persone`
+    }
+    if (n === 1) return '1 persona ha reagito'
+    return `${n} persone hanno reagito`
+  })()
+
+  // Emoji preview: prime 3 reazioni per frequenza
+  const topEmojis = Object.entries(content.reactionsByType ?? {})
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([type]) => REACTIONS.find(r => r.type === type)?.emoji ?? '❤️')
 
   return (
     <>
@@ -243,23 +384,30 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(s => !s)}
-                  className="text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center
-                             justify-center rounded-full hover:bg-gray-100"
+                  className="w-7 h-7 flex items-center justify-center rounded-full
+                             hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  style={{ color: 'var(--text-faint)' }}
                   aria-label="Opzioni"
                 >
                   ⋯
                 </button>
                 {showMenu && (
                   <div
-                    className="absolute right-0 top-full mt-1 bg-white border border-gray-100
-                               rounded-xl shadow-lg z-20 min-w-[190px] overflow-hidden"
+                    className="absolute right-0 top-full mt-1 rounded-xl z-20
+                               min-w-[190px] overflow-hidden border"
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      borderColor: 'var(--border)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    }}
                     onMouseLeave={() => setShowMenu(false)}
                   >
                     {canReport && (
                       <button
                         onClick={() => { setShowReport(true); setShowMenu(false) }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-600
-                                   hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2
+                                   hover:bg-gray-100 dark:hover:bg-gray-700"
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         🚩 Segnala
                       </button>
@@ -267,7 +415,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                     {canChangePublisher && (
                       <>
                         {(canReport || canDelete) && (
-                          <div className="border-t border-gray-100" />
+                          <div className="border-t" style={{ borderColor: 'var(--border)' }} />
                         )}
                         <ChangePublisherInline
                           contentId={content.id}
@@ -279,11 +427,11 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                     )}
                     {canDelete && (
                       <>
-                        <div className="border-t border-gray-100" />
+                        <div className="border-t" style={{ borderColor: 'var(--border)' }} />
                         <button
                           onClick={() => { onDelete!(content.id); setShowMenu(false) }}
                           className="w-full text-left px-4 py-2.5 text-sm text-red-500
-                                     hover:bg-red-50 flex items-center gap-2"
+                                     hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                         >
                           🗑️ Elimina
                         </button>
@@ -325,14 +473,49 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
           )}
         </Link>
 
+        {/* Riga reactions label stile Facebook */}
+        {reactionsLabel && (
+          <div className="flex items-center gap-1.5 mt-3">
+            {topEmojis.length > 0 && (
+              <span className="flex -space-x-0.5">
+                {topEmojis.map((emoji, i) => (
+                  <span
+                    key={i}
+                    className="w-5 h-5 flex items-center justify-center text-xs rounded-full"
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1.5px solid var(--border)',
+                    }}
+                  >
+                    {emoji}
+                  </span>
+                ))}
+              </span>
+            )}
+            <button
+              onClick={() => setShowReactors(true)}
+              className="text-xs hover:underline transition-colors"
+              style={{ color: 'var(--text-faint)' }}
+            >
+              {reactionsLabel}
+            </button>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 flex-wrap">
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t flex-wrap"
+          style={{ borderColor: 'var(--border)' }}>
+
+          {/* Bottone reagisci */}
           <div className="relative">
             <button
               onClick={handleReactClick}
               className={`flex items-center gap-1.5 text-sm rounded-full px-3 py-1.5 transition-colors ${
-                content.myReaction ? 'bg-pink-50 text-pink-600' : 'text-gray-500 hover:bg-gray-100'
+                content.myReaction
+                  ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
+              style={!content.myReaction ? { color: 'var(--text-faint)' } : {}}
             >
               {content.myReaction
                 ? (REACTIONS.find(r => r.type === content.myReaction)?.emoji ?? '❤️')
@@ -340,26 +523,37 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               {content.reactionsCount}
             </button>
 
+            {/* Popup: scegli alter ego */}
             {showAePicker && (
               <div
-                className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
-                           border border-gray-100 p-3 z-10 min-w-[180px]"
+                className="absolute bottom-full left-0 mb-2 rounded-2xl border p-3 z-10 min-w-[180px]"
+                style={popupStyle}
               >
-                <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>
-                  Reagisci come:
-                </p>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>Reagisci come:</p>
                 <div className="space-y-1 mb-2">
                   <button
-                    onClick={() => { setSelectedAeId(undefined); setShowAePicker(false); setShowReactions(true) }}
-                    className="w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50"
+                    onClick={() => {
+                      setSelectedAeId(undefined)   // <─ profilo reale: nessun AE
+                      setShowAePicker(false)
+                      setShowReactions(true)
+                    }}
+                    className="w-full text-left text-sm px-2 py-1.5 rounded-lg
+                               hover:bg-gray-100 dark:hover:bg-gray-700"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     👤 {user?.displayName}
                   </button>
                   {alterEgos.map(ae => (
                     <button
                       key={ae.id}
-                      onClick={() => { setSelectedAeId(ae.id); setShowAePicker(false); setShowReactions(true) }}
-                      className="w-full text-left text-sm px-2 py-1.5 rounded-lg hover:bg-gray-50"
+                      onClick={() => {
+                        setSelectedAeId(ae.id)       // <─ alter ego specifico
+                        setShowAePicker(false)
+                        setShowReactions(true)
+                      }}
+                      className="w-full text-left text-sm px-2 py-1.5 rounded-lg
+                                 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      style={{ color: 'var(--text-primary)' }}
                     >
                       🎭 {ae.name}
                     </button>
@@ -368,17 +562,19 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               </div>
             )}
 
+            {/* Popup: scelta reazione */}
             {showReactions && (
               <div
-                className="absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-lg
-                           border border-gray-100 flex gap-1 p-2 z-10"
+                className="absolute bottom-full left-0 mb-2 rounded-2xl border flex gap-1 p-2 z-10"
+                style={popupStyle}
               >
                 {REACTIONS.map(r => (
                   <button
                     key={r.type}
                     onClick={() => doReact(r.type)}
-                    className={`text-xl p-1.5 rounded-xl hover:bg-gray-100 transition-colors ${
-                      content.myReaction === r.type ? 'bg-pink-50' : ''
+                    className={`text-xl p-1.5 rounded-xl transition-colors
+                                hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      content.myReaction === r.type ? 'bg-pink-50 dark:bg-pink-900/30' : ''
                     }`}
                     title={r.type}
                   >
@@ -391,7 +587,8 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
 
           <Link
             to={`/content/${content.id}#comments`}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-happy-600"
+            className="flex items-center gap-1.5 text-sm hover:text-happy-600"
+            style={{ color: 'var(--text-faint)' }}
           >
             💬 {content.commentsCount}
           </Link>
@@ -399,6 +596,14 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
           <ShareContentButton contentId={content.id} contentTitle={content.title} />
         </div>
       </article>
+
+      {/* Modal reactor */}
+      {showReactors && (
+        <ReactorsModal
+          content={content}
+          onClose={() => setShowReactors(false)}
+        />
+      )}
 
       {showReport && (
         <ReportModal

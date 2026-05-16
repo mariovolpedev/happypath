@@ -49,6 +49,13 @@ export interface AlterEgoResponse {
   createdAt: string
 }
 
+export interface ReactionEntry {
+  userId: number
+  type: ReactionType
+  user: UserSummary
+  alterEgo?: AlterEgoResponse
+}
+
 export interface ContentResponse {
   id: number
   title: string
@@ -62,6 +69,8 @@ export interface ContentResponse {
   commentsCount: number
   reactionsByType: Record<string, number>
   myReaction?: string
+  /** Lista completa delle reazioni (utenti + alter ego) — opzionale, presente se inclusa dall'API */
+  reactions?: ReactionEntry[]
   dedications: Array<{ from: UserSummary; to: UserSummary }>
   createdAt: string
   updatedAt: string

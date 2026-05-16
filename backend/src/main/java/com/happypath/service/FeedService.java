@@ -119,7 +119,6 @@ public class FeedService {
     }
 
     private FeedItemResponse buildCommentItem(Comment c) {
-        // Per i commenti nel feed recuperiamo solo titolo/id del content — no lazy collection
         Content parent = c.getContent();
         long reactions = 0L, comments = 0L;
         Map<String, Long> byType = Map.of();
@@ -180,7 +179,8 @@ public class FeedService {
                 c.getId(), c.getTitle(), c.getBody(), c.getMediaUrl(),
                 toUserSummary(c.getAuthor()), null, theme,
                 c.getStatus(), reactions, comments, byType, null,
-                List.of(), c.getCreatedAt(), c.getUpdatedAt());
+                List.of(), null,   // reactions = null nel feed
+                c.getCreatedAt(), c.getUpdatedAt());
     }
 
     private CommentResponse toCommentResponse(Comment c) {
