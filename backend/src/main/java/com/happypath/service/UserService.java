@@ -39,6 +39,12 @@ public class UserService {
                 .orElseThrow(() -> new HappyPathException("Utente non trovato", HttpStatus.NOT_FOUND));
     }
 
+    /** Persiste direttamente un'entità User già modificata. */
+    @Transactional
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
     @Cacheable(
             value = RedisConfig.CACHE_USER_PROFILE,
             key = "#username + ':' + (#currentUser != null ? #currentUser.id : 'anon')")
@@ -98,7 +104,6 @@ public class UserService {
 
     /**
      * Rimuove un seguace: l'utente con id followerId smette di seguire `owner`.
-     * Usato quando l'owner vuole rimuovere qualcuno dalla propria lista seguaci.
      */
     @Transactional
     @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
@@ -109,46 +114,40 @@ public class UserService {
         followRepository.delete(follow);
     }
 
-    /** Seguaci dell'utente autenticato (chi lo segue). */
     public List<UserSummary> getFollowers(User user) {
         return followRepository.findByFollowed(user).stream()
-                .map(f -> toSummary(f.getFollower()))
+                .map(f -> UserSummary.from(f.getFollower()))
                 .toList();
     }
 
-    /** Utenti seguiti dall'utente autenticato. */
     public List<UserSummary> getFollowing(User user) {
         return followRepository.findByFollower(user).stream()
-                .map(f -> toSummary(f.getFollowed()))
+                .map(f -> UserSummary.from(f.getFollowed()))
                 .toList();
     }
 
-    /** Seguaci pubblici di un utente per username. */
     public List<UserSummary> getFollowersByUsername(String username) {
         User user = findByUsername(username);
         return followRepository.findByFollowed(user).stream()
-                .map(f -> toSummary(f.getFollower()))
+                .map(f -> UserSummary.from(f.getFollower()))
                 .toList();
     }
 
-    /** Seguiti pubblici di un utente per username. */
     public List<UserSummary> getFollowingByUsername(String username) {
         User user = findByUsername(username);
         return followRepository.findByFollower(user).stream()
-                .map(f -> toSummary(f.getFollowed()))
+                .map(f -> UserSummary.from(f.getFollowed()))
                 .toList();
     }
 
     public List<UserSummary> search(String query) {
         return userRepository.searchByUsernameOrDisplayName(query).stream()
-                .map(u -> new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(),
-                        u.getAvatarUrl(), u.getRole(), u.isVerified()))
+                .map(UserSummary::from)
                 .toList();
     }
 
     public UserSummary toSummary(User u) {
-        return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(),
-                u.getAvatarUrl(), u.getRole(), u.isVerified());
+        return UserSummary.from(u);
     }
 
     private UserProfile toProfile(User target, long followers, long following,

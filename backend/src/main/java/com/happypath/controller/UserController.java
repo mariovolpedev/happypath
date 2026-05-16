@@ -6,7 +6,6 @@ import com.happypath.dto.response.UserProfile;
 import com.happypath.dto.response.UserSummary;
 import com.happypath.model.User;
 import com.happypath.security.HappyPathUserDetails;
-import com.happypath.service.AuthService;
 import com.happypath.service.BlockService;
 import com.happypath.service.MediaStorageService;
 import com.happypath.service.UserService;
@@ -72,7 +71,7 @@ public class UserController {
             user.setTutorialCompleted(true);
             userService.save(user);
         }
-        return ResponseEntity.ok(AuthService.toSummary(user));
+        return ResponseEntity.ok(UserSummary.from(user));
     }
 
     @PostMapping("/{id}/follow")
@@ -145,8 +144,6 @@ public class UserController {
     public ResponseEntity<List<UserSummary>> search(@RequestParam String q) {
         return ResponseEntity.ok(userService.search(q));
     }
-
-    // -------------------------------------------------------------------------
 
     private String extractObjectKey(String fullUrl) {
         int idx = fullUrl.indexOf("/happypath-media/");
