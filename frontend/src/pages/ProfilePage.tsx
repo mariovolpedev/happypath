@@ -71,9 +71,14 @@ interface EditModalProps {
 
 /* ════════════════════════════════════════════════════════════
    UserListModal  —  modale con lista seguaci o seguiti
-   Mostra il pulsante azione solo se isMe (profilo dell'utente corrente):
-   - Seguaci → "Rimuovi" (rimuove il seguace dalla propria lista)
-   - Seguiti → "Smetti di seguire" (unfollow)
+
+   Logica pulsanti di azione:
+   - isMe + seguaci   → "Rimuovi" (rimuove il seguace dalla propria lista)
+   - isMe + seguiti   → "Smetti" (unfollow)
+   - !isMe + seguaci  → "Rimuovi" visibile solo se l'utente loggato è in lista
+                        (si rimuove dai seguaci del profilo corrente)
+   - !isMe + seguiti  → "Smetti" visibile solo se l'utente loggato è in lista
+                        (smette di seguire il profilo corrente)
    ════════════════════════════════════════════════════════════ */
 function UserListModal({
   title,
@@ -81,6 +86,7 @@ function UserListModal({
   loading,
   modalType,
   isMe,
+  meId,
   onClose,
   onCountChange,
 }: {
@@ -89,6 +95,7 @@ function UserListModal({
   loading: boolean
   modalType: ModalType
   isMe: boolean
+  meId: number | undefined
   onClose: () => void
   onCountChange: (delta: number) => void
 }) {
@@ -134,9 +141,26 @@ function UserListModal({
     }
   }
 
+  /**
+   * Naviga al profilo PRIMA di chiudere il modale, così il router
+   * non perde il contesto e non finisce sul catch-all → home.
+   */
   const goToProfile = (username: string) => {
-    onClose()
     navigate(`/u/${username}`)
+    onClose()
+  }
+
+  /**
+   * Mostra il pulsante di azione solo quando:
+   * - isMe: sempre (gestisce i propri seguaci/seguiti)
+   * - !isMe: solo se l'utente loggato è presente nella lista
+   *   (cioè il record riguarda ME stesso)
+   */
+  const shouldShowAction = (u: UserSummary): boolean => {
+    if (isMe) return true
+    if (!meId) return false
+    // Sul profilo altrui, mostra il pulsante solo sulla riga dell'utente loggato
+    return u.id === meId
   }
 
   return (
@@ -182,7 +206,18 @@ function UserListModal({
             </p>
           ) : (
             users.map(u => {
-              const isBusy = pending.has(u.id)
+              const isBusy      = pending.has(u.id)
+              const showAction  = shouldShowAction(u)
+
+              // Etichetta e colore del pulsante
+              // - isMe + seguiti → "Smetti" (amber)
+              // - isMe + seguaci → "Rimuovi" (red)
+              // - !isMe + seguaci (io sono in lista) → "Rimuovimi" (red): mi rimuovo dai suoi seguaci
+              // - !isMe + seguiti (io sono in lista) → "Smetti" (amber): smetto di seguirlo
+              const btnLabel = modalType === 'seguiti' ? 'Smetti' : 'Rimuovi'
+              const btnColor = modalType === 'seguiti' ? { border: '#f59e0b', text: '#d97706' }
+                                                       : { border: '#ef4444', text: '#dc2626' }
+
               return (
                 <div
                   key={u.id}
@@ -216,8 +251,8 @@ function UserListModal({
                     </div>
                   </button>
 
-                  {/* Pulsante azione — solo sul proprio profilo */}
-                  {isMe && (
+                  {/* Pulsante azione */}
+                  {showAction && (
                     <button
                       onClick={() =>
                         modalType === 'seguiti'
@@ -227,16 +262,11 @@ function UserListModal({
                       disabled={isBusy}
                       className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40"
                       style={{
-                        borderColor: modalType === 'seguiti' ? '#f59e0b' : '#ef4444',
-                        color:       modalType === 'seguiti' ? '#d97706' : '#dc2626',
+                        borderColor: btnColor.border,
+                        color:       btnColor.text,
                       }}
                     >
-                      {isBusy
-                        ? '…'
-                        : modalType === 'seguiti'
-                        ? 'Smetti'
-                        : 'Rimuovi'
-                      }
+                      {isBusy ? '…' : btnLabel}
                     </button>
                   )}
                 </div>
@@ -569,6 +599,7 @@ export default function ProfilePage() {
           loading={modalLoading}
           modalType={modalType}
           isMe={isMe}
+          meId={me?.id}
           onClose={closeModal}
           onCountChange={handleModalCountChange}
         />
