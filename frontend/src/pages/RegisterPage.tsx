@@ -15,6 +15,45 @@ type FormState = {
   gender: 'M' | 'F' | ''
 }
 
+const APP_FEATURES = [
+  {
+    icon: '🌻',
+    title: 'Solo buonumore',
+    desc: 'Contenuti moderati: niente odio, solo storie positive.',
+  },
+  {
+    icon: '🎭',
+    title: 'Alter Ego',
+    desc: 'Crea fino a 3 personalità digitali diverse.',
+  },
+  {
+    icon: '🎨',
+    title: 'Temi personalizzati',
+    desc: 'Personalizza l\'aspetto con temi della community.',
+  },
+  {
+    icon: '💌',
+    title: 'Dediche speciali',
+    desc: 'Dedica post e messaggi a chi vuoi bene.',
+  },
+  {
+    icon: '✨',
+    title: 'Feed su misura',
+    desc: 'Scegli tu cosa vedere nel tuo feed.',
+  },
+  {
+    icon: '🔒',
+    title: 'Privacy totale',
+    desc: 'Controllo completo sulla tua visibilità.',
+  },
+]
+
+const TESTIMONIALS = [
+  { name: 'Sofia R.', text: 'Finalmente un social che mi fa stare bene! 💛', emoji: '🌸' },
+  { name: 'Davide M.', text: 'L\'Alter Ego è una feature geniale. Amo questa app!', emoji: '⭐' },
+  { name: 'Chiara L.', text: 'La community più gentile che abbia mai trovato online.', emoji: '🌈' },
+]
+
 export default function RegisterPage() {
   const [form, setForm] = useState<FormState>({
     username: '', email: '', password: '', displayName: '',
@@ -31,7 +70,6 @@ export default function RegisterPage() {
     setError('')
     setFieldErrors({})
 
-    // Validazioni client-side
     const fe: Record<string, string> = {}
     if (!form.displayName.trim()) fe.displayName = 'Il nome visualizzato è obbligatorio'
     else if (form.displayName.trim().length < 3) fe.displayName = 'Minimo 3 caratteri'
@@ -72,89 +110,137 @@ export default function RegisterPage() {
     `input${fieldErrors[key] ? ' border-red-400' : ''}`
 
   return (
-    <div className="max-w-md mx-auto">
-      <div className="card">
-        <h1 className="font-display text-2xl font-bold mb-1 text-center">🌱 Inizia il tuo Happy Path!</h1>
-        <p className="text-center text-gray-500 text-sm mb-6">Crea il tuo account gratuito</p>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="max-w-5xl mx-auto px-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
-          {/* Account */}
+        {/* ── LEFT: App preview ── */}
+        <div className="lg:sticky lg:top-8 space-y-6">
           <div>
-            <input className={inputCls('username')} placeholder="Username *" value={form.username}
-              onChange={f('username')} required minLength={3} maxLength={50} />
-            {fieldErrors.username && <p className="text-red-500 text-xs mt-1">{fieldErrors.username}</p>}
-          </div>
-          <div>
-            <input className={inputCls('email')} type="email" placeholder="Email *" value={form.email}
-              onChange={f('email')} required />
-            {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>}
-          </div>
-          <div>
-            <input className={inputCls('password')} type="password" placeholder="Password * (min. 8 caratteri)"
-              value={form.password} onChange={f('password')} required minLength={8} />
-            {fieldErrors.password && <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>}
-          </div>
-          <div>
-            <input className={inputCls('displayName')} placeholder="Nome visualizzato * (es. Mario Rossi)"
-              value={form.displayName} onChange={f('displayName')} required minLength={3} maxLength={80} />
-            {fieldErrors.displayName && <p className="text-red-500 text-xs mt-1">{fieldErrors.displayName}</p>}
+            <div className="text-4xl mb-2">🌻</div>
+            <h1 className="font-display text-3xl font-bold mb-2" style={{ color: 'var(--text-base)' }}>
+              Benvenuto su HappyPath
+            </h1>
+            <p style={{ color: 'var(--text-muted)' }} className="text-base leading-relaxed">
+              Il social network del benessere. Solo storie positive, solo buona energia.
+            </p>
           </div>
 
-          <hr className="border-gray-100" />
-          <p className="text-xs text-gray-400 -mt-1">
-            🪪 Dati anagrafici — verranno usati per verificare la tua identità
-          </p>
-
-          {/* Dati anagrafici */}
+          {/* Features grid */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <input className={inputCls('firstName')} placeholder="Nome *" value={form.firstName}
-                onChange={f('firstName')} required minLength={2} maxLength={80} />
-              {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>}
-            </div>
-            <div>
-              <input className={inputCls('lastName')} placeholder="Cognome *" value={form.lastName}
-                onChange={f('lastName')} required minLength={2} maxLength={80} />
-              {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>}
-            </div>
+            {APP_FEATURES.map(feat => (
+              <div key={feat.title} className="card p-3 flex gap-3 items-start" style={{ background: 'var(--surface-1)' }}>
+                <span className="text-xl mt-0.5">{feat.icon}</span>
+                <div>
+                  <p className="font-semibold text-sm" style={{ color: 'var(--text-base)' }}>{feat.title}</p>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{feat.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Data di nascita *</label>
-              <input className={inputCls('birthDate')} type="date" value={form.birthDate}
-                onChange={f('birthDate')} required />
-              {fieldErrors.birthDate && <p className="text-red-500 text-xs mt-1">{fieldErrors.birthDate}</p>}
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Genere *</label>
-              <select className={inputCls('gender')} value={form.gender}
-                onChange={f('gender')} required>
-                <option value="">Seleziona…</option>
-                <option value="M">Maschio</option>
-                <option value="F">Femmina</option>
-              </select>
-              {fieldErrors.gender && <p className="text-red-500 text-xs mt-1">{fieldErrors.gender}</p>}
-            </div>
+          {/* Testimonials */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Cosa dice la community</p>
+            {TESTIMONIALS.map(t => (
+              <div key={t.name} className="card p-3 flex gap-3 items-start" style={{ background: 'var(--surface-1)' }}>
+                <span className="text-xl">{t.emoji}</span>
+                <div>
+                  <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>"{t.text}"</p>
+                  <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-faint)' }}>— {t.name}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div>
-            <input className={inputCls('birthPlace')} placeholder="Comune di nascita *" value={form.birthPlace}
-              onChange={f('birthPlace')} required minLength={2} maxLength={100} />
-            {fieldErrors.birthPlace && <p className="text-red-500 text-xs mt-1">{fieldErrors.birthPlace}</p>}
-          </div>
+          <p className="text-xs" style={{ color: 'var(--text-faint)' }}>✅ Gratuito &nbsp;·&nbsp; 🚫 Senza pubblicità &nbsp;·&nbsp; 🔒 Privacy first</p>
+        </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <p className="text-xs text-gray-400">
-            Registrandoti accetti il nostro regolamento. La piattaforma promuove contenuti semplici e felici.
+        {/* ── RIGHT: Registration form ── */}
+        <div className="card">
+          <h2 className="font-display text-2xl font-bold mb-1 text-center">🌱 Inizia il tuo Happy Path!</h2>
+          <p className="text-center text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Crea il tuo account gratuito</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* Account */}
+            <div>
+              <input className={inputCls('username')} placeholder="Username *" value={form.username}
+                onChange={f('username')} required minLength={3} maxLength={50} />
+              {fieldErrors.username && <p className="text-red-500 text-xs mt-1">{fieldErrors.username}</p>}
+            </div>
+            <div>
+              <input className={inputCls('email')} type="email" placeholder="Email *" value={form.email}
+                onChange={f('email')} required />
+              {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>}
+            </div>
+            <div>
+              <input className={inputCls('password')} type="password" placeholder="Password * (min. 8 caratteri)"
+                value={form.password} onChange={f('password')} required minLength={8} />
+              {fieldErrors.password && <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>}
+            </div>
+            <div>
+              <input className={inputCls('displayName')} placeholder="Nome visualizzato * (es. Mario Rossi)"
+                value={form.displayName} onChange={f('displayName')} required minLength={3} maxLength={80} />
+              {fieldErrors.displayName && <p className="text-red-500 text-xs mt-1">{fieldErrors.displayName}</p>}
+            </div>
+
+            <hr className="border-gray-100" />
+            <p className="text-xs -mt-1" style={{ color: 'var(--text-faint)' }}>
+              🪪 Dati anagrafici — usati per la verifica identità
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input className={inputCls('firstName')} placeholder="Nome *" value={form.firstName}
+                  onChange={f('firstName')} required minLength={2} maxLength={80} />
+                {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>}
+              </div>
+              <div>
+                <input className={inputCls('lastName')} placeholder="Cognome *" value={form.lastName}
+                  onChange={f('lastName')} required minLength={2} maxLength={80} />
+                {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: 'var(--text-faint)' }}>Data di nascita *</label>
+                <input className={inputCls('birthDate')} type="date" value={form.birthDate}
+                  onChange={f('birthDate')} required />
+                {fieldErrors.birthDate && <p className="text-red-500 text-xs mt-1">{fieldErrors.birthDate}</p>}
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: 'var(--text-faint)' }}>Genere *</label>
+                <select className={inputCls('gender')} value={form.gender}
+                  onChange={f('gender')} required>
+                  <option value="">Seleziona…</option>
+                  <option value="M">Maschio</option>
+                  <option value="F">Femmina</option>
+                </select>
+                {fieldErrors.gender && <p className="text-red-500 text-xs mt-1">{fieldErrors.gender}</p>}
+              </div>
+            </div>
+
+            <div>
+              <input className={inputCls('birthPlace')} placeholder="Comune di nascita *" value={form.birthPlace}
+                onChange={f('birthPlace')} required minLength={2} maxLength={100} />
+              {fieldErrors.birthPlace && <p className="text-red-500 text-xs mt-1">{fieldErrors.birthPlace}</p>}
+            </div>
+
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+              Registrandoti accetti il nostro regolamento. La piattaforma promuove contenuti semplici e felici.
+            </p>
+            <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
+              {loading ? 'Creazione account...' : '🌱 Registrati gratis'}
+            </button>
+          </form>
+
+          <p className="text-center text-sm mt-4" style={{ color: 'var(--text-muted)' }}>
+            Hai già un account?{' '}
+            <Link to="/login" className="text-happy-600 font-medium">Accedi</Link>
           </p>
-          <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
-            {loading ? 'Creazione account...' : 'Registrati gratis'}
-          </button>
-        </form>
-        <p className="text-center text-sm text-gray-500 mt-4">
-          Hai già un account? <Link to="/login" className="text-happy-600 font-medium">Accedi</Link>
-        </p>
+        </div>
       </div>
     </div>
   )

@@ -6,6 +6,7 @@ import com.happypath.dto.response.UserProfile;
 import com.happypath.dto.response.UserSummary;
 import com.happypath.model.User;
 import com.happypath.security.HappyPathUserDetails;
+import com.happypath.service.AuthService;
 import com.happypath.service.BlockService;
 import com.happypath.service.MediaStorageService;
 import com.happypath.service.UserService;
@@ -58,6 +59,22 @@ public class UserController {
                 new MediaUploadResponse(url, objectKey, file.getContentType(), file.getSize()));
     }
 
+    /**
+     * Segna il tutorial come completato per l'utente autenticato.
+     * Idempotente: può essere chiamato più volte senza effetti negativi.
+     * POST /users/me/tutorial-completed
+     */
+    @PostMapping("/me/tutorial-completed")
+    public ResponseEntity<UserSummary> completeTutorial(
+            @AuthenticationPrincipal HappyPathUserDetails details) {
+        User user = details.getUser();
+        if (!user.isTutorialCompleted()) {
+            user.setTutorialCompleted(true);
+            userService.save(user);
+        }
+        return ResponseEntity.ok(AuthService.toSummary(user));
+    }
+
     @PostMapping("/{id}/follow")
     public ResponseEntity<Void> follow(@PathVariable Long id,
                                        @AuthenticationPrincipal HappyPathUserDetails details) {
@@ -72,12 +89,6 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Rimuove un seguace dal profilo dell'utente autenticato.
-     * L'utente con id {followerId} smette di seguire l'utente corrente.
-     *
-     * DELETE /users/{followerId}/followers/me
-     */
     @DeleteMapping("/{followerId}/followers/me")
     public ResponseEntity<Void> removeFollower(
             @PathVariable Long followerId,
@@ -106,28 +117,24 @@ public class UserController {
         return ResponseEntity.ok(blockService.getBlockedUsers(details.getUser()));
     }
 
-    /** Seguaci dell'utente corrente autenticato (chi mi segue). */
     @GetMapping("/me/followers")
     public ResponseEntity<List<UserSummary>> getMyFollowers(
             @AuthenticationPrincipal HappyPathUserDetails details) {
         return ResponseEntity.ok(userService.getFollowers(details.getUser()));
     }
 
-    /** Utenti seguiti dall'utente corrente autenticato. */
     @GetMapping("/me/following")
     public ResponseEntity<List<UserSummary>> getMyFollowing(
             @AuthenticationPrincipal HappyPathUserDetails details) {
         return ResponseEntity.ok(userService.getFollowing(details.getUser()));
     }
 
-    /** Seguaci pubblici di un utente per username. */
     @GetMapping("/{username}/followers")
     public ResponseEntity<List<UserSummary>> getFollowersByUsername(
             @PathVariable String username) {
         return ResponseEntity.ok(userService.getFollowersByUsername(username));
     }
 
-    /** Seguiti pubblici di un utente per username. */
     @GetMapping("/{username}/following")
     public ResponseEntity<List<UserSummary>> getFollowingByUsername(
             @PathVariable String username) {

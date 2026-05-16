@@ -50,6 +50,7 @@ public class AuthService {
                 .birthDate(req.birthDate())
                 .birthPlace(req.birthPlace().trim())
                 .gender(req.gender().toUpperCase())
+                // tutorialCompleted defaults to false via @Builder.Default
                 .build();
 
         user = userRepository.save(user);
@@ -69,7 +70,15 @@ public class AuthService {
         }
     }
 
-    private UserSummary toSummary(User u) {
-        return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(), u.getAvatarUrl(), u.getRole(), u.isVerified());
+    public static UserSummary toSummary(User u) {
+        return new UserSummary(
+                u.getId(),
+                u.getUsername(),
+                u.getDisplayName(),
+                u.getAvatarUrl(),
+                u.getRole(),
+                u.isVerified(),
+                u.isTutorialCompleted()
+        );
     }
 }

@@ -23,16 +23,15 @@ public class User {
     @Column(nullable = false, length = 50)
     private String username;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)
     private String passwordHash;
 
-    @Column(length = 100)
+    @Column(length = 80)
     private String displayName;
 
-    /** Dati anagrafici raccolti in fase di registrazione — usati per il confronto 1:1 in fase di verifica identità */
     @Column(length = 80)
     private String firstName;
 
@@ -44,7 +43,6 @@ public class User {
     @Column(length = 100)
     private String birthPlace;
 
-    /** M / F */
     @Column(length = 1)
     private String gender;
 
@@ -53,26 +51,25 @@ public class User {
 
     private String avatarUrl;
 
-    /**
-     * Colore personalizzato del profilo (es. "#22c55e").
-     * Usato come accent color nella pagina profilo dell'utente.
-     */
-    @Column(length = 7)
-    private String profileColor;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private UserRole role = UserRole.USER;
 
-    /** Spunta blu — identità verificata tramite documento d'identità */
+    @Column(nullable = false)
     @Builder.Default
     private boolean verified = false;
 
+    /**
+     * Indica se l'utente ha già completato (o saltato) il tutorial
+     * al primo accesso. Impostato a true tramite POST /users/me/tutorial-completed.
+     */
+    @Column(nullable = false)
     @Builder.Default
-    private boolean active = true;
+    private boolean tutorialCompleted = false;
 
     @CreationTimestamp
+    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
