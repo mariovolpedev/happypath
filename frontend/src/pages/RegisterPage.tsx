@@ -62,7 +62,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
-  const { setAuth } = useAuthStore()
+  const { setAuth, markFirstLogin } = useAuthStore()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +83,19 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       const data = await register({ ...form, gender: form.gender as 'M' | 'F' })
+
+      // 1. Salva token + utente nello store
       setAuth(data.token, data.user)
+
+      // 2. Attiva il tutorial se l'utente non lo ha ancora completato.
+      //    markFirstLogin() legge get().user, ma per sicurezza controlliamo
+      //    direttamente la risposta API così evitiamo race condition di store.
+      if (!data.user.tutorialCompleted) {
+        markFirstLogin()
+      }
+
+      // 3. Naviga alla home — il TutorialOverlay in App.tsx è già montato
+      //    e showTutorial=true lo renderà subito visibile.
       navigate('/home')
     } catch (err: any) {
       const responseData = err.response?.data
@@ -229,16 +241,17 @@ export default function RegisterPage() {
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
-              Registrandoti accetti il nostro regolamento. La piattaforma promuove contenuti semplici e felici.
+              Registrandoti accetti i nostri <Link to="/terms" className="underline">Termini di servizio</Link>.
             </p>
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
-              {loading ? 'Creazione account...' : '🌱 Registrati gratis'}
+
+            <button type="submit" className="btn-primary w-full" disabled={loading}>
+              {loading ? 'Registrazione in corso…' : '🌱 Crea account'}
             </button>
           </form>
 
           <p className="text-center text-sm mt-4" style={{ color: 'var(--text-muted)' }}>
             Hai già un account?{' '}
-            <Link to="/login" className="text-happy-600 font-medium">Accedi</Link>
+            <Link to="/login" className="font-semibold" style={{ color: 'var(--primary)' }}>Accedi</Link>
           </p>
         </div>
       </div>
