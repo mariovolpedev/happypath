@@ -17,6 +17,8 @@ export interface UserSummary {
   avatarUrl?: string
   role: UserRole
   verified: boolean
+  /** True se l'utente ha già completato o saltato il tutorial al primo accesso */
+  tutorialCompleted: boolean
 }
 
 export interface UserProfile extends UserSummary {
