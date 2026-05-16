@@ -25,22 +25,19 @@ interface Props {
   onDelete?: (id: number) => void
 }
 
-// ─── Sotto-componente: cambio publisher inline nel menu ───────────────────────
+// ─── Cambio publisher inline nel menu ────────────────────────────────────────
 function ChangePublisherInline({
-  contentId,
-  currentAlterEgoId,
-  onChanged,
-  onClose,
+  contentId, currentAlterEgoId, onChanged, onClose,
 }: {
   contentId: number
   currentAlterEgoId?: number
   onChanged: (c: ContentResponse) => void
   onClose: () => void
 }) {
-  const [step, setStep]         = useState<'trigger' | 'pick'>('trigger')
+  const [step, setStep]           = useState<'trigger' | 'pick'>('trigger')
   const [alterEgos, setAlterEgos] = useState<AlterEgoResponse[]>([])
-  const [saving, setSaving]     = useState(false)
-  const { user }                = useAuthStore()
+  const [saving, setSaving]       = useState(false)
+  const { user }                  = useAuthStore()
 
   const openPicker = async () => {
     const aes = await getMyAlterEgos().catch(() => [] as AlterEgoResponse[])
@@ -90,7 +87,6 @@ function ChangePublisherInline({
             <span className="ml-auto text-xs bg-happy-100 text-happy-700 rounded-full px-1.5">attivo</span>
           )}
         </button>
-
         {alterEgos.map(ae => (
           <button
             key={ae.id}
@@ -102,11 +98,9 @@ function ChangePublisherInline({
             }`}
             style={currentAlterEgoId !== ae.id ? { color: 'var(--text-muted)' } : {}}
           >
-            {ae.avatarUrl ? (
-              <img src={ae.avatarUrl} alt={ae.name} className="w-4 h-4 rounded-full object-cover" />
-            ) : (
-              <span>🎭</span>
-            )}
+            {ae.avatarUrl
+              ? <img src={ae.avatarUrl} alt={ae.name} className="w-4 h-4 rounded-full object-cover" />
+              : <span>🎭</span>}
             {ae.name}
             {currentAlterEgoId === ae.id && (
               <span className="ml-auto text-xs bg-purple-100 text-purple-700 rounded-full px-1.5">attivo</span>
@@ -118,23 +112,129 @@ function ChangePublisherInline({
     </div>
   )
 }
+
+// ─── Modal lista reactor — stile Instagram ───────────────────────────────────
+function ReactorsModal({
+  content,
+  onClose,
+}: {
+  content: ContentResponse
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full sm:w-[400px] max-h-[70vh] rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden shadow-xl"
+        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Reazioni · {content.reactionsCount}
+          </span>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full
+                       hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-lg"
+            style={{ color: 'var(--text-faint)' }}
+            aria-label="Chiudi"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Lista */}
+        <div className="overflow-y-auto flex-1 px-2 py-2">
+          {content.reactions && content.reactions.length > 0 ? (
+            content.reactions.map(r => (
+              <Link
+                key={`${r.userId}-${r.type}`}
+                to={r.alterEgo ? `/ae/${r.alterEgo.id}` : `/u/${r.user.username}`}
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
+                           hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
+                  {r.alterEgo ? (
+                    r.alterEgo.avatarUrl
+                      ? <img src={r.alterEgo.avatarUrl} alt={r.alterEgo.name}
+                             className="w-9 h-9 rounded-full object-cover" />
+                      : <span className="w-9 h-9 flex items-center justify-center text-xl">🎭</span>
+                  ) : (
+                    <Avatar user={r.user} size="sm" />
+                  )}
+                  {/* Emoji badge */}
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 text-xs leading-none
+                               w-4 h-4 flex items-center justify-center rounded-full"
+                    style={{ backgroundColor: 'var(--surface)' }}
+                  >
+                    {REACTIONS.find(rx => rx.type === r.type)?.emoji ?? '❤️'}
+                  </span>
+                </div>
+
+                {/* Nome */}
+                <div className="flex flex-col min-w-0">
+                  <span
+                    className="text-sm font-medium truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {r.alterEgo ? r.alterEgo.name : r.user.displayName}
+                  </span>
+                  {r.alterEgo && (
+                    <span className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>
+                      via {r.user.displayName}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))
+          ) : (
+            /* reactions null = feed paginato, suggerisci di aprire il post */
+            <div className="flex flex-col items-center py-8 gap-2">
+              <span className="text-3xl">❤️</span>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                Apri il post per vedere chi ha reagito.
+              </p>
+              <Link
+                to={`/content/${content.id}`}
+                onClick={onClose}
+                className="text-sm text-happy-600 hover:underline mt-1"
+              >
+                Vedi post →
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ContentCard({ content: initial, onDelete }: Props) {
-  const [content,        setContent]      = useState(initial)
-  const [showReactions,  setShowReactions]  = useState(false)
-  const [showReport,     setShowReport]     = useState(false)
-  const [showMenu,       setShowMenu]       = useState(false)
-  const [alterEgos,      setAlterEgos]      = useState<AlterEgoResponse[]>([])
-  const [selectedAeId,   setSelectedAeId]   = useState<number | undefined>()
-  const [showAePicker,   setShowAePicker]   = useState(false)
-  const [showReactors,   setShowReactors]   = useState(false)
-  const { user, isAuthenticated }           = useAuthStore()
+  const [content,       setContent]     = useState(initial)
+  const [showReactions, setShowReactions] = useState(false)
+  const [showReport,    setShowReport]    = useState(false)
+  const [showMenu,      setShowMenu]      = useState(false)
+  const [alterEgos,     setAlterEgos]     = useState<AlterEgoResponse[]>([])
+  const [selectedAeId,  setSelectedAeId]  = useState<number | undefined>()
+  const [showAePicker,  setShowAePicker]  = useState(false)
+  const [showReactors,  setShowReactors]  = useState(false)
+  const { user, isAuthenticated }         = useAuthStore()
 
-  const isAuthor     = user?.id === content.author.id
-  const isModOrAdmin = user?.role === 'MODERATOR' || user?.role === 'ADMIN'
-  const canDelete    = (isAuthor || isModOrAdmin) && !!onDelete
-  const canReport    = isAuthenticated() && !isAuthor
+  const isAuthor           = user?.id === content.author.id
+  const isModOrAdmin       = user?.role === 'MODERATOR' || user?.role === 'ADMIN'
+  const canDelete          = (isAuthor || isModOrAdmin) && !!onDelete
+  const canReport          = isAuthenticated() && !isAuthor
   const canChangePublisher = isAuthor && user?.verified
 
   const displayAuthor = content.alterEgo
@@ -146,10 +246,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     if (user?.verified) {
       const aes = await getMyAlterEgos().catch(() => [] as AlterEgoResponse[])
       setAlterEgos(aes)
-      if (aes.length > 0) {
-        setShowAePicker(true)
-        return
-      }
+      if (aes.length > 0) { setShowAePicker(true); return }
     }
     setShowReactions(s => !s)
   }
@@ -180,6 +277,28 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
     setShowReactions(false)
     setShowAePicker(false)
   }
+
+  // Testo in stile Facebook: "Mario e altre 3 persone"
+  const reactionsLabel = (() => {
+    const n = content.reactionsCount
+    if (n === 0) return null
+    if (content.reactions && content.reactions.length > 0) {
+      const first = content.reactions[0]
+      const firstName = first.alterEgo ? first.alterEgo.name : first.user.displayName
+      if (n === 1) return firstName
+      if (n === 2) return `${firstName} e un'altra persona`
+      return `${firstName} e altre ${n - 1} persone`
+    }
+    if (n === 1) return '1 persona ha reagito'
+    return `${n} persone hanno reagito`
+  })()
+
+  // Emoji preview (prime 3 reazioni distinte per tipo)
+  const topEmojis = Object.entries(content.reactionsByType ?? {})
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([type]) => REACTIONS.find(r => r.type === type)?.emoji ?? '❤️')
 
   return (
     <>
@@ -260,10 +379,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                   <div
                     className="absolute right-0 top-full mt-1 rounded-xl shadow-lg z-20
                                min-w-[190px] overflow-hidden border"
-                    style={{
-                      backgroundColor: 'var(--surface)',
-                      borderColor: 'var(--border)',
-                    }}
+                    style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
                     onMouseLeave={() => setShowMenu(false)}
                   >
                     {canReport && (
@@ -337,9 +453,37 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
           )}
         </Link>
 
+        {/* Riga reactions label stile Facebook */}
+        {reactionsLabel && (
+          <div className="flex items-center gap-1.5 mt-3">
+            {/* Emoji pill */}
+            {topEmojis.length > 0 && (
+              <span className="flex -space-x-0.5">
+                {topEmojis.map((emoji, i) => (
+                  <span
+                    key={i}
+                    className="w-5 h-5 flex items-center justify-center text-xs rounded-full"
+                    style={{ backgroundColor: 'var(--surface-raised, var(--bg))', border: '1.5px solid var(--border)' }}
+                  >
+                    {emoji}
+                  </span>
+                ))}
+              </span>
+            )}
+            <button
+              onClick={() => setShowReactors(true)}
+              className="text-xs hover:underline transition-colors"
+              style={{ color: 'var(--text-faint)' }}
+            >
+              {reactionsLabel}
+            </button>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="flex items-center gap-3 mt-4 pt-3 border-t flex-wrap"
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t flex-wrap"
           style={{ borderColor: 'var(--border)' }}>
+          {/* Bottone reagisci */}
           <div className="relative">
             <button
               onClick={handleReactClick}
@@ -360,14 +504,9 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             {showAePicker && (
               <div
                 className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg border p-3 z-10 min-w-[180px]"
-                style={{
-                  backgroundColor: 'var(--surface)',
-                  borderColor: 'var(--border)',
-                }}
+                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
               >
-                <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>
-                  Reagisci come:
-                </p>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-faint)' }}>Reagisci come:</p>
                 <div className="space-y-1 mb-2">
                   <button
                     onClick={() => { setSelectedAeId(undefined); setShowAePicker(false); setShowReactions(true) }}
@@ -396,10 +535,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             {showReactions && (
               <div
                 className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg border flex gap-1 p-2 z-10"
-                style={{
-                  backgroundColor: 'var(--surface)',
-                  borderColor: 'var(--border)',
-                }}
+                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
               >
                 {REACTIONS.map(r => (
                   <button
@@ -418,19 +554,6 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             )}
           </div>
 
-          {/* Contatore reazioni cliccabile → mostra chi ha reagito */}
-          {content.reactionsCount > 0 && content.reactions && (
-            <button
-              onClick={() => setShowReactors(s => !s)}
-              className="text-xs rounded-full px-2 py-0.5 transition-colors
-                         hover:bg-gray-100 dark:hover:bg-gray-700"
-              style={{ color: 'var(--text-faint)' }}
-              title="Vedi chi ha reagito"
-            >
-              👥 {content.reactionsCount}
-            </button>
-          )}
-
           <Link
             to={`/content/${content.id}#comments`}
             className="flex items-center gap-1.5 text-sm hover:text-happy-600"
@@ -441,44 +564,15 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
 
           <ShareContentButton contentId={content.id} contentTitle={content.title} />
         </div>
-
-        {/* Pannello lista reactor */}
-        {showReactors && content.reactions && content.reactions.length > 0 && (
-          <div
-            className="mt-3 pt-3 border-t"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-faint)' }}>
-              Chi ha reagito:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {content.reactions.map(r => (
-                <Link
-                  key={`${r.userId}-${r.type}`}
-                  to={r.alterEgo ? `/ae/${r.alterEgo.id}` : `/u/${r.user.username}`}
-                  className="flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1
-                             hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  style={{
-                    backgroundColor: 'var(--surface-raised, var(--surface))',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
-                  {r.alterEgo ? (
-                    r.alterEgo.avatarUrl
-                      ? <img src={r.alterEgo.avatarUrl} alt={r.alterEgo.name} className="w-4 h-4 rounded-full" />
-                      : <span>🎭</span>
-                  ) : (
-                    <Avatar user={r.user} size="sm" />
-                  )}
-                  <span>{r.alterEgo ? r.alterEgo.name : r.user.displayName}</span>
-                  <span>{REACTIONS.find(rx => rx.type === r.type)?.emoji ?? '❤️'}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </article>
+
+      {/* Modal reactor */}
+      {showReactors && (
+        <ReactorsModal
+          content={content}
+          onClose={() => setShowReactors(false)}
+        />
+      )}
 
       {showReport && (
         <ReportModal
