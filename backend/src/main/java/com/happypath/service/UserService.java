@@ -88,12 +88,7 @@ public class UserService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
-                        key = "#follower.username + ':' + #follower.id"),
-            @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE,
-                        key = "''+#targetId+':anon'")
-    })
+    @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
     public void unfollow(User follower, Long targetId) {
         User target = findById(targetId);
         Follow follow = followRepository.findByFollowerAndFollowed(follower, target)
