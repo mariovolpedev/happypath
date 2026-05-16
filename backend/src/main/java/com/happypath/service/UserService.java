@@ -45,9 +45,6 @@ public class UserService {
      * La chiave combina username + currentUser (può essere null per utenti anonimi).
      * I campi isFollowed e isBlocked dipendono dall'utente autenticato, quindi
      * includiamo il suo ID nella chiave per evitare cross-user cache pollution.
-     *
-     * Nota: se si vogliono ridurre le entry in cache si può separare la parte
-     * pubblica (followerCount, bio, avatar) da quella user-specific (isFollowed).
      */
     @Cacheable(
             value = RedisConfig.CACHE_USER_PROFILE,
@@ -64,8 +61,7 @@ public class UserService {
     }
 
     /**
-     * Aggiornamento profilo: invalida TUTTE le entry dell'utente
-     * (qualsiasi visitatore avrebbe dati obsoleti).
+     * Aggiornamento profilo: invalida TUTTE le entry dell'utente.
      */
     @Transactional
     @CacheEvict(value = RedisConfig.CACHE_USER_PROFILE, allEntries = true)
@@ -79,8 +75,7 @@ public class UserService {
     }
 
     /**
-     * Follow: il conteggio follower del target e il flag isFollowed cambiano
-     * → invalidiamo le entry di entrambi gli utenti coinvolti.
+     * Follow: il conteggio seguaci del target e il flag isFollowed cambiano.
      */
     @Transactional
     @Caching(evict = {
@@ -119,13 +114,31 @@ public class UserService {
         followRepository.delete(follow);
     }
 
+    /** Seguaci dell'utente autenticato (chi lo segue). */
     public List<UserSummary> getFollowers(User user) {
         return followRepository.findByFollowed(user).stream()
                 .map(f -> toSummary(f.getFollower()))
                 .toList();
     }
 
+    /** Utenti seguiti dall'utente autenticato. */
     public List<UserSummary> getFollowing(User user) {
+        return followRepository.findByFollower(user).stream()
+                .map(f -> toSummary(f.getFollowed()))
+                .toList();
+    }
+
+    /** Seguaci pubblici di un utente per username. */
+    public List<UserSummary> getFollowersByUsername(String username) {
+        User user = findByUsername(username);
+        return followRepository.findByFollowed(user).stream()
+                .map(f -> toSummary(f.getFollower()))
+                .toList();
+    }
+
+    /** Seguiti pubblici di un utente per username. */
+    public List<UserSummary> getFollowingByUsername(String username) {
+        User user = findByUsername(username);
         return followRepository.findByFollower(user).stream()
                 .map(f -> toSummary(f.getFollowed()))
                 .toList();

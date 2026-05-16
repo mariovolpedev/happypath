@@ -5,6 +5,7 @@ import { it } from 'date-fns/locale'
 import {
   getProfile, follow, unfollow, getUserContents, updateProfile, uploadAvatar,
   getUserReactions, getUserCommentsActivity,
+  getFollowersByUsername, getFollowingByUsername,
   type UserReactionResponse, type UserCommentActivityResponse
 } from '../api/users'
 import { blockUser, unblockUser } from '../api/blocks'
@@ -14,7 +15,7 @@ import {
   type VerificationRequestResponse,
   type SubmitVerificationRequest,
 } from '../api/verification'
-import type { UserProfile, ContentResponse } from '../types'
+import type { UserProfile, UserSummary, ContentResponse } from '../types'
 import Avatar from '../components/common/Avatar'
 import VerifiedBadge from '../components/common/VerifiedBadge'
 import ContentCard from '../components/content/ContentCard'
@@ -59,11 +60,118 @@ function ColorSwatch({ hex, label, selected, onClick }: {
 }
 
 type Tab = 'contents' | 'reactions' | 'comments'
+type ModalType = 'seguaci' | 'seguiti' | null
 
 interface EditModalProps {
   profile: UserProfile
   onClose: () => void
   onSaved: (updated: UserProfile) => void
+}
+
+/* ════════════════════════════════════════════════════════════
+   UserListModal  —  modale con lista seguaci o seguiti
+   ════════════════════════════════════════════════════════════ */
+function UserListModal({
+  title,
+  users,
+  loading,
+  onClose,
+}: {
+  title: string
+  users: UserSummary[]
+  loading: boolean
+  onClose: () => void
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const handleOverlay = (e: React.MouseEvent) => {
+    if (e.target === overlayRef.current) onClose()
+  }
+
+  // Chiude col tasto Esc
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      ref={overlayRef}
+      onClick={handleOverlay}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          maxHeight: '80vh',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <h2 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Chiudi"
+            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+            style={{ color: 'var(--text-faint)' }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Body scrollabile */}
+        <div className="overflow-y-auto flex-1 py-2">
+          {loading ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : users.length === 0 ? (
+            <p className="text-center py-10 text-sm" style={{ color: 'var(--text-faint)' }}>
+              Nessun utente da mostrare.
+            </p>
+          ) : (
+            users.map(u => (
+              <Link
+                key={u.id}
+                to={`/profile/${u.username}`}
+                onClick={onClose}
+                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--bg-offset)]"
+              >
+                {/* Avatar */}
+                <div
+                  className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-base font-bold flex-shrink-0"
+                  style={{ backgroundColor: '#22c55e33', color: '#22c55e' }}
+                >
+                  {u.avatarUrl ? (
+                    <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    u.displayName?.slice(0, 1).toUpperCase() ?? '?'
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                      {u.displayName}
+                    </span>
+                    {u.verified && <VerifiedBadge />}
+                  </div>
+                  <span className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>@{u.username}</span>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -266,6 +374,12 @@ export default function ProfilePage() {
   const [comments, setComments]     = useState<UserCommentActivityResponse[]>([])
   const [tabLoading, setTabLoading] = useState(false)
   const [showReport, setShowReport] = useState(false)
+
+  // Stato modale seguaci/seguiti
+  const [modalType, setModalType]       = useState<ModalType>(null)
+  const [modalUsers, setModalUsers]     = useState<UserSummary[]>([])
+  const [modalLoading, setModalLoading] = useState(false)
+
   const { user: me, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
@@ -276,6 +390,23 @@ export default function ProfilePage() {
       .then(([p, c]) => { setProfile(p); setContents(c.content) })
       .finally(() => setLoading(false))
   }, [username])
+
+  const openModal = async (type: ModalType) => {
+    if (!username || !type) return
+    setModalType(type)
+    setModalUsers([])
+    setModalLoading(true)
+    try {
+      const data = type === 'seguaci'
+        ? await getFollowersByUsername(username)
+        : await getFollowingByUsername(username)
+      setModalUsers(data)
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
+  const closeModal = () => setModalType(null)
 
   const handleTabChange = async (tab: Tab) => {
     setActiveTab(tab)
@@ -341,6 +472,19 @@ export default function ProfilePage() {
 
   return (
     <>
+      {/* Modale seguaci/seguiti */}
+      {modalType && (
+        <UserListModal
+          title={modalType === 'seguaci'
+            ? `Seguaci (${profile.followersCount})`
+            : `Seguiti (${profile.followingCount})`
+          }
+          users={modalUsers}
+          loading={modalLoading}
+          onClose={closeModal}
+        />
+      )}
+
       {showEdit && (
         <EditProfileModal
           profile={profile}
@@ -452,9 +596,25 @@ export default function ProfilePage() {
             {profile.bio && (
               <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{profile.bio}</p>
             )}
+
+            {/* ── Contatori seguaci/seguiti cliccabili ── */}
             <div className="flex gap-5 mt-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <span><strong style={{ color: 'var(--text-primary)' }}>{profile.followersCount}</strong> follower</span>
-              <span><strong style={{ color: 'var(--text-primary)' }}>{profile.followingCount}</strong> seguiti</span>
+              <button
+                onClick={() => openModal('seguaci')}
+                className="flex items-center gap-1 hover:underline transition-colors focus:outline-none"
+                style={{ color: 'var(--text-muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                <strong style={{ color: 'var(--text-primary)' }}>{profile.followersCount}</strong>
+                &nbsp;seguaci
+              </button>
+              <button
+                onClick={() => openModal('seguiti')}
+                className="flex items-center gap-1 hover:underline transition-colors focus:outline-none"
+                style={{ color: 'var(--text-muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                <strong style={{ color: 'var(--text-primary)' }}>{profile.followingCount}</strong>
+                &nbsp;seguiti
+              </button>
             </div>
 
             {isAuthenticated() && !isMe && !canMessage && !profile.isBlockedByMe && (
@@ -594,7 +754,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
     if (!file) return
     e.target.value = ''
     setAvatarFile(file)
-    // Mostra preview locale immediata
     const localUrl = URL.createObjectURL(file)
     setAvatarPreview(localUrl)
   }
@@ -606,7 +765,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
     try {
       let finalAvatarUrl: string | undefined = profile.avatarUrl
 
-      // Carica il file su MinIO se l'utente ne ha selezionato uno nuovo
       if (avatarFile) {
         setUploadingAvatar(true)
         finalAvatarUrl = await uploadAvatar(avatarFile)
@@ -619,7 +777,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
         avatarUrl: finalAvatarUrl,
         profileColor: profileColor || undefined,
       })
-      // Aggiorna lo store auth con il nuovo avatarUrl
       setUser({ ...updated })
       onSaved(updated)
       onClose()
@@ -659,7 +816,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* ── Avatar upload ── */}
             <div className="flex items-center gap-4">
-              {/* Preview avatar */}
               <div className="relative flex-shrink-0">
                 <div
                   className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-2xl font-bold"
@@ -686,7 +842,6 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
                 )}
               </div>
 
-              {/* Pulsante selezione file */}
               <div className="flex-1">
                 <label
                   className="text-xs font-semibold uppercase tracking-wide mb-1 block"
