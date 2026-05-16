@@ -3,10 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 import {
-  getProfile, follow, unfollow, removeFollower,
-  getUserContents, updateProfile, uploadAvatar,
+  getProfile, follow, unfollow, getUserContents, updateProfile, uploadAvatar,
   getUserReactions, getUserCommentsActivity,
   getFollowersByUsername, getFollowingByUsername,
+  removeFollower,
   type UserReactionResponse, type UserCommentActivityResponse
 } from '../api/users'
 import { blockUser, unblockUser } from '../api/blocks'
@@ -71,43 +71,28 @@ interface EditModalProps {
 
 /* ════════════════════════════════════════════════════════════
    UserListModal  —  modale con lista seguaci o seguiti
-
-   Logica pulsanti di azione:
-   - isMe + seguaci   → "Rimuovi" (rimuove il seguace dalla propria lista)
-   - isMe + seguiti   → "Smetti" (unfollow)
-   - !isMe + seguaci  → "Rimuovi" visibile solo se l'utente loggato è in lista
-                        (si rimuove dai seguaci del profilo corrente)
-   - !isMe + seguiti  → "Smetti" visibile solo se l'utente loggato è in lista
-                        (smette di seguire il profilo corrente)
    ════════════════════════════════════════════════════════════ */
 function UserListModal({
   title,
-  users: initialUsers,
+  users,
   loading,
   modalType,
   isMe,
-  meId,
   onClose,
-  onCountChange,
+  onRemoveFollower,
+  onUnfollow,
 }: {
   title: string
   users: UserSummary[]
   loading: boolean
   modalType: ModalType
   isMe: boolean
-  meId: number | undefined
   onClose: () => void
-  onCountChange: (delta: number) => void
+  onRemoveFollower: (userId: number) => Promise<void>
+  onUnfollow: (userId: number) => Promise<void>
 }) {
   const overlayRef = useRef<HTMLDivElement>(null)
-  const navigate   = useNavigate()
-
-  // Lista locale per aggiornamento ottimistico senza ricaricare tutto
-  const [users, setUsers]         = useState<UserSummary[]>(initialUsers)
-  const [pending, setPending]     = useState<Set<number>>(new Set())
-
-  // Sincronizza quando il parent aggiorna la lista (es. dopo caricamento)
-  useEffect(() => { setUsers(initialUsers) }, [initialUsers])
+  const [removing, setRemoving] = useState<number | null>(null)
 
   const handleOverlay = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose()
@@ -119,49 +104,22 @@ function UserListModal({
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const handleUnfollow = async (u: UserSummary) => {
-    setPending(s => new Set(s).add(u.id))
+  const handleAction = async (e: React.MouseEvent, userId: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setRemoving(userId)
     try {
-      await unfollow(u.id)
-      setUsers(prev => prev.filter(x => x.id !== u.id))
-      onCountChange(-1)
+      if (modalType === 'seguaci') {
+        await onRemoveFollower(userId)
+      } else {
+        await onUnfollow(userId)
+      }
     } finally {
-      setPending(s => { const ns = new Set(s); ns.delete(u.id); return ns })
+      setRemoving(null)
     }
   }
 
-  const handleRemoveFollower = async (u: UserSummary) => {
-    setPending(s => new Set(s).add(u.id))
-    try {
-      await removeFollower(u.id)
-      setUsers(prev => prev.filter(x => x.id !== u.id))
-      onCountChange(-1)
-    } finally {
-      setPending(s => { const ns = new Set(s); ns.delete(u.id); return ns })
-    }
-  }
-
-  /**
-   * Naviga al profilo PRIMA di chiudere il modale, così il router
-   * non perde il contesto e non finisce sul catch-all → home.
-   */
-  const goToProfile = (username: string) => {
-    navigate(`/u/${username}`)
-    onClose()
-  }
-
-  /**
-   * Mostra il pulsante di azione solo quando:
-   * - isMe: sempre (gestisce i propri seguaci/seguiti)
-   * - !isMe: solo se l'utente loggato è presente nella lista
-   *   (cioè il record riguarda ME stesso)
-   */
-  const shouldShowAction = (u: UserSummary): boolean => {
-    if (isMe) return true
-    if (!meId) return false
-    // Sul profilo altrui, mostra il pulsante solo sulla riga dell'utente loggato
-    return u.id === meId
-  }
+  const actionLabel = modalType === 'seguaci' ? 'Rimuovi' : 'Non seguire più'
 
   return (
     <div
@@ -205,73 +163,66 @@ function UserListModal({
               Nessun utente da mostrare.
             </p>
           ) : (
-            users.map(u => {
-              const isBusy      = pending.has(u.id)
-              const showAction  = shouldShowAction(u)
-
-              // Etichetta e colore del pulsante
-              // - isMe + seguiti → "Smetti" (amber)
-              // - isMe + seguaci → "Rimuovi" (red)
-              // - !isMe + seguaci (io sono in lista) → "Rimuovimi" (red): mi rimuovo dai suoi seguaci
-              // - !isMe + seguiti (io sono in lista) → "Smetti" (amber): smetto di seguirlo
-              const btnLabel = modalType === 'seguiti' ? 'Smetti' : 'Rimuovi'
-              const btnColor = modalType === 'seguiti' ? { border: '#f59e0b', text: '#d97706' }
-                                                       : { border: '#ef4444', text: '#dc2626' }
-
-              return (
-                <div
-                  key={u.id}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-offset)]"
+            users.map(u => (
+              <div key={u.id} className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-[var(--bg-offset)]">
+                {/* Link cliccabile: avatar + info → /u/:username */}
+                <Link
+                  to={`/u/${u.username}`}
+                  onClick={onClose}
+                  className="flex items-center gap-3 flex-1 min-w-0"
                 >
-                  {/* Avatar + info — cliccabili per andare al profilo */}
-                  <button
-                    onClick={() => goToProfile(u.username)}
-                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  {/* Avatar */}
+                  <div
+                    className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-base font-bold flex-shrink-0"
+                    style={{ backgroundColor: '#22c55e33', color: '#22c55e' }}
                   >
-                    <div
-                      className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center
-                                 text-base font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#22c55e33', color: '#22c55e' }}
-                    >
-                      {u.avatarUrl ? (
-                        <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
-                      ) : (
-                        u.displayName?.slice(0, 1).toUpperCase() ?? '?'
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
-                          {u.displayName}
-                        </span>
-                        {u.verified && <VerifiedBadge />}
-                      </div>
-                      <span className="text-xs truncate block" style={{ color: 'var(--text-faint)' }}>@{u.username}</span>
-                    </div>
-                  </button>
+                    {u.avatarUrl ? (
+                      <img src={u.avatarUrl} alt={u.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      u.displayName?.slice(0, 1).toUpperCase() ?? '?'
+                    )}
+                  </div>
 
-                  {/* Pulsante azione */}
-                  {showAction && (
-                    <button
-                      onClick={() =>
-                        modalType === 'seguiti'
-                          ? handleUnfollow(u)
-                          : handleRemoveFollower(u)
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                        {u.displayName}
+                      </span>
+                      {u.verified && <VerifiedBadge />}
+                    </div>
+                    <span className="text-xs truncate block" style={{ color: 'var(--text-faint)' }}>@{u.username}</span>
+                  </div>
+                </Link>
+
+                {/* Pulsante azione — visibile solo se è il proprio profilo */}
+                {isMe && (
+                  <button
+                    onClick={(e) => handleAction(e, u.id)}
+                    disabled={removing === u.id}
+                    className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40"
+                    style={{
+                      borderColor: 'var(--border)',
+                      color: 'var(--text-muted)',
+                    }}
+                    onMouseEnter={e => {
+                      if (removing !== u.id) {
+                        ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#ef4444'
+                        ;(e.currentTarget as HTMLButtonElement).style.color = '#ef4444'
+                        ;(e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fef2f2'
                       }
-                      disabled={isBusy}
-                      className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40"
-                      style={{
-                        borderColor: btnColor.border,
-                        color:       btnColor.text,
-                      }}
-                    >
-                      {isBusy ? '…' : btnLabel}
-                    </button>
-                  )}
-                </div>
-              )
-            })
+                    }}
+                    onMouseLeave={e => {
+                      ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'
+                      ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'
+                      ;(e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'
+                    }}
+                  >
+                    {removing === u.id ? '…' : actionLabel}
+                  </button>
+                )}
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -513,15 +464,18 @@ export default function ProfilePage() {
 
   const closeModal = () => setModalType(null)
 
-  /** Aggiorna il contatore sul profilo dopo un'azione nel modale */
-  const handleModalCountChange = (delta: number) => {
-    if (!profile) return
-    setProfile(p => {
-      if (!p) return p
-      return modalType === 'seguaci'
-        ? { ...p, followersCount: Math.max(0, p.followersCount + delta) }
-        : { ...p, followingCount: Math.max(0, p.followingCount + delta) }
-    })
+  /** Rimuove ottimisticamente un utente dalla lista e chiama l'API */
+  const handleRemoveFollower = async (followerId: number) => {
+    setModalUsers(prev => prev.filter(u => u.id !== followerId))
+    setProfile(p => p ? { ...p, followersCount: p.followersCount - 1 } : p)
+    await removeFollower(followerId)
+  }
+
+  /** Smette di seguire un utente dalla lista seguiti */
+  const handleUnfollow = async (userId: number) => {
+    setModalUsers(prev => prev.filter(u => u.id !== userId))
+    setProfile(p => p ? { ...p, followingCount: p.followingCount - 1 } : p)
+    await unfollow(userId)
   }
 
   const handleTabChange = async (tab: Tab) => {
@@ -599,9 +553,9 @@ export default function ProfilePage() {
           loading={modalLoading}
           modalType={modalType}
           isMe={isMe}
-          meId={me?.id}
           onClose={closeModal}
-          onCountChange={handleModalCountChange}
+          onRemoveFollower={handleRemoveFollower}
+          onUnfollow={handleUnfollow}
         />
       )}
 
@@ -933,6 +887,7 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* ── Avatar upload ── */}
             <div className="flex items-center gap-4">
               <div className="relative flex-shrink-0">
                 <div
@@ -988,11 +943,13 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
               </div>
             </div>
 
+            {/* ── Display name ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>Nome visualizzato</label>
               <input className="input" placeholder="Il tuo nome" value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={100} />
             </div>
 
+            {/* ── Bio ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-1 block" style={{ color: 'var(--text-muted)' }}>
                 Bio <span style={{ color: 'var(--text-faint)' }}>({bio.length}/300)</span>
@@ -1000,6 +957,7 @@ function EditProfileModal({ profile, onClose, onSaved }: EditModalProps) {
               <textarea className="input resize-none h-20" placeholder="Raccontaci qualcosa di te... 🌱" value={bio} onChange={e => setBio(e.target.value)} maxLength={300} />
             </div>
 
+            {/* ── Colore profilo ── */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide mb-2 block" style={{ color: 'var(--text-muted)' }}>Colore profilo</label>
               <div className="flex flex-wrap gap-2 mb-3">

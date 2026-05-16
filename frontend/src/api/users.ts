@@ -30,7 +30,7 @@ export const follow = (id: number) => api.post(`/users/${id}/follow`)
 export const unfollow = (id: number) => api.delete(`/users/${id}/follow`)
 
 /**
- * Rimuove un seguace dalla propria lista.
+ * Rimuove un seguace dal proprio profilo.
  * Chiama DELETE /users/{followerId}/followers/me
  */
 export const removeFollower = (followerId: number) =>
