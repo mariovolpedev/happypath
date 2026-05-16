@@ -344,7 +344,9 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             <button
               onClick={handleReactClick}
               className={`flex items-center gap-1.5 text-sm rounded-full px-3 py-1.5 transition-colors ${
-                content.myReaction ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                content.myReaction
+                  ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
               style={!content.myReaction ? { color: 'var(--text-faint)' } : {}}
             >
@@ -357,8 +359,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             {/* Popup: scegli alter ego */}
             {showAePicker && (
               <div
-                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg
-                           border p-3 z-10 min-w-[180px]"
+                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg border p-3 z-10 min-w-[180px]"
                 style={{
                   backgroundColor: 'var(--surface)',
                   borderColor: 'var(--border)',
@@ -394,8 +395,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
             {/* Popup: scelta reazione */}
             {showReactions && (
               <div
-                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg
-                           border flex gap-1 p-2 z-10"
+                className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-lg border flex gap-1 p-2 z-10"
                 style={{
                   backgroundColor: 'var(--surface)',
                   borderColor: 'var(--border)',
@@ -419,7 +419,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
           </div>
 
           {/* Contatore reazioni cliccabile → mostra chi ha reagito */}
-          {content.reactionsCount > 0 && (
+          {content.reactionsCount > 0 && content.reactions && (
             <button
               onClick={() => setShowReactors(s => !s)}
               className="text-xs rounded-full px-2 py-0.5 transition-colors
@@ -452,7 +452,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
               Chi ha reagito:
             </p>
             <div className="flex flex-wrap gap-2">
-              {content.reactions.map((r: any) => (
+              {content.reactions.map(r => (
                 <Link
                   key={`${r.userId}-${r.type}`}
                   to={r.alterEgo ? `/ae/${r.alterEgo.id}` : `/u/${r.user.username}`}
@@ -469,7 +469,7 @@ export default function ContentCard({ content: initial, onDelete }: Props) {
                       ? <img src={r.alterEgo.avatarUrl} alt={r.alterEgo.name} className="w-4 h-4 rounded-full" />
                       : <span>🎭</span>
                   ) : (
-                    <Avatar user={r.user} size="xs" />
+                    <Avatar user={r.user} size="sm" />
                   )}
                   <span>{r.alterEgo ? r.alterEgo.name : r.user.displayName}</span>
                   <span>{REACTIONS.find(rx => rx.type === r.type)?.emoji ?? '❤️'}</span>
