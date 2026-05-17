@@ -1,5 +1,5 @@
 import api from './client'
-import type { ContentResponse, CommentResponse, Page } from '../types'
+import type { ContentResponse, CommentResponse, CommentReactionEntry, Page, ReactionType } from '../types'
 
 export const getFeed = (page = 0, themeId?: number) =>
   api
@@ -32,11 +32,6 @@ export const updateContent = (
 export const deleteContent = (id: number) =>
   api.delete(`/contents/${id}`)
 
-/**
- * Cambia il profilo con cui è pubblicato un contenuto.
- * @param id        id del contenuto
- * @param alterEgoId  id alter ego oppure null per tornare al profilo reale
- */
 export const changePublisher = (id: number, alterEgoId: number | null) =>
   api
     .patch<ContentResponse>(`/contents/${id}/publisher`, { alterEgoId })
@@ -55,6 +50,13 @@ export const getComments = (contentId: number, page = 0) =>
     .get<Page<CommentResponse>>(`/contents/${contentId}/comments`, { params: { page } })
     .then(r => r.data)
 
+export const getReplies = (contentId: number, commentId: number, page = 0) =>
+  api
+    .get<Page<CommentResponse>>(`/contents/${contentId}/comments/${commentId}/replies`, {
+      params: { page },
+    })
+    .then(r => r.data)
+
 export const addComment = (
   contentId: number,
   text: string,
@@ -71,3 +73,27 @@ export const addComment = (
 
 export const deleteComment = (contentId: number, commentId: number) =>
   api.delete(`/contents/${contentId}/comments/${commentId}`)
+
+/** Lista dettagliata di chi ha reagito a un commento */
+export const getCommentReactions = (contentId: number, commentId: number) =>
+  api
+    .get<CommentReactionEntry[]>(`/contents/${contentId}/comments/${commentId}/reactions`)
+    .then(r => r.data)
+
+/** Aggiunge o sostituisce la reazione dell'utente su un commento */
+export const reactToComment = (
+  contentId: number,
+  commentId: number,
+  type: ReactionType,
+  alterEgoId?: number
+) =>
+  api
+    .put(`/contents/${contentId}/comments/${commentId}/reactions`, {
+      type,
+      alterEgoId,
+    })
+    .then(r => r.data)
+
+/** Rimuove la reazione dell'utente da un commento */
+export const removeCommentReaction = (contentId: number, commentId: number) =>
+  api.delete(`/contents/${contentId}/comments/${commentId}/reactions`).then(r => r.data)

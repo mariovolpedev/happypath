@@ -27,10 +27,12 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
+    /** Content coinvolto (REACTION, COMMENT, COMMENT_REACTION) */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "content_id")
     private Content content;
 
+    /** Commento coinvolto (COMMENT, COMMENT_REACTION) */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "comment_id")
     private Comment comment;

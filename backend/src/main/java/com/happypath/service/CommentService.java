@@ -1,6 +1,7 @@
 package com.happypath.service;
 
 import com.happypath.dto.request.CommentRequest;
+import com.happypath.dto.response.CommentReactionSummaryResponse;
 import com.happypath.dto.response.CommentResponse;
 import com.happypath.exception.HappyPathException;
 import com.happypath.model.*;
@@ -16,11 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CommentService {
 
-    private final CommentRepository    commentRepository;
-    private final ContentService       contentService;
-    private final UserService          userService;
-    private final AlterEgoService      alterEgoService;
-    private final NotificationService  notificationService;
+    private final CommentRepository      commentRepository;
+    private final ContentService         contentService;
+    private final UserService            userService;
+    private final AlterEgoService        alterEgoService;
+    private final NotificationService    notificationService;
+    private final CommentReactionService commentReactionService;
 
     @Transactional
     public CommentResponse addComment(Long contentId, CommentRequest req, User author) {
@@ -40,20 +42,34 @@ public class CommentService {
             Comment parent = commentRepository.findById(req.parentId())
                     .orElseThrow(() ->
                             new HappyPathException("Commento padre non trovato", HttpStatus.NOT_FOUND));
-            builder.parent(parent);
+            // Permetti solo un livello di annidamento: se il parent è già una risposta,
+            // aggancia al suo parent (il commento radice)
+            builder.parent(parent.getParent() != null ? parent.getParent() : parent);
         }
 
         Comment saved = commentRepository.save(builder.build());
         notificationService.notifyComment(author, content, saved);
-        return toResponse(saved);
+        return toResponse(saved, author);
     }
 
-    public Page<CommentResponse> getComments(Long contentId, Pageable pageable) {
+    public Page<CommentResponse> getComments(Long contentId, Pageable pageable, User currentUser) {
         Content content = contentService.findById(contentId);
         return commentRepository
                 .findByContentAndParentIsNullAndStatusOrderByCreatedAtAsc(
                         content, ContentStatus.ACTIVE, pageable)
-                .map(this::toResponse);
+                .map(c -> toResponse(c, currentUser));
+    }
+
+    /** Restituisce le risposte (replies) di un commento specifico. */
+    public Page<CommentResponse> getReplies(Long contentId, Long commentId,
+                                             Pageable pageable, User currentUser) {
+        // Verifica che il content esista
+        contentService.findById(contentId);
+        Comment parent = commentRepository.findById(commentId)
+                .orElseThrow(() -> new HappyPathException("Commento non trovato", HttpStatus.NOT_FOUND));
+        return commentRepository
+                .findByParentAndStatusOrderByCreatedAtAsc(parent, ContentStatus.ACTIVE, pageable)
+                .map(c -> toResponse(c, currentUser));
     }
 
     @Transactional
@@ -69,7 +85,10 @@ public class CommentService {
         commentRepository.save(comment);
     }
 
-    private CommentResponse toResponse(Comment c) {
+    public CommentResponse toResponse(Comment c, User currentUser) {
+        long replyCount = commentRepository.countByParentAndStatus(c, ContentStatus.ACTIVE);
+        CommentReactionSummaryResponse reactions =
+                commentReactionService.buildSummary(c, currentUser);
         return new CommentResponse(
                 c.getId(),
                 c.getText(),
@@ -77,6 +96,8 @@ public class CommentService {
                 c.getAlterEgo() != null ? alterEgoService.toResponse(c.getAlterEgo()) : null,
                 c.getParent() != null ? c.getParent().getId() : null,
                 c.getStatus(),
-                c.getCreatedAt());
+                c.getCreatedAt(),
+                replyCount,
+                reactions);
     }
 }

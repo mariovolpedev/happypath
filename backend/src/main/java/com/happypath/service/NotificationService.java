@@ -14,6 +14,10 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
 
+    // ---------------------------------------------------------------
+    // Notifiche in uscita
+    // ---------------------------------------------------------------
+
     @Transactional
     public void notifyReaction(User actor, Content content) {
         if (actor.getId().equals(content.getAuthor().getId())) return;
@@ -47,6 +51,23 @@ public class NotificationService {
                 .build());
     }
 
+    /** Notifica all'autore del commento quando riceve una reazione. */
+    @Transactional
+    public void notifyCommentReaction(User actor, Comment comment) {
+        if (actor.getId().equals(comment.getAuthor().getId())) return;
+        notificationRepository.save(Notification.builder()
+                .recipient(comment.getAuthor())
+                .actor(actor)
+                .type(NotificationType.COMMENT_REACTION)
+                .content(comment.getContent())
+                .comment(comment)
+                .build());
+    }
+
+    // ---------------------------------------------------------------
+    // Lettura notifiche
+    // ---------------------------------------------------------------
+
     public Page<Notification> getNotifications(User recipient, Pageable pageable) {
         return notificationRepository.findByRecipientOrderByCreatedAtDesc(recipient, pageable);
     }
@@ -69,5 +90,4 @@ public class NotificationService {
             }
         });
     }
-
 }
