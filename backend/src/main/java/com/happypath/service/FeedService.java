@@ -180,12 +180,21 @@ public class FeedService {
                 c.getCreatedAt(), c.getUpdatedAt());
     }
 
+    /**
+     * Mappatura leggera per il feed: replyCount=0 e reactions=null
+     * (dati non necessari nel contesto feed, recuperabili on-demand).
+     */
     private CommentResponse toCommentResponse(Comment c) {
         if (c == null) return null;
         return new CommentResponse(
-                c.getId(), c.getText(), toUserSummary(c.getAuthor()),
+                c.getId(),
+                c.getText(),
+                toUserSummary(c.getAuthor()),
                 null,
                 c.getParent() != null ? c.getParent().getId() : null,
-                c.getStatus(), c.getCreatedAt());
+                c.getStatus(),
+                c.getCreatedAt(),
+                0L,
+                null);
     }
 }

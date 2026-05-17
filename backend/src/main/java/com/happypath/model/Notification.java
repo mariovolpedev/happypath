@@ -27,13 +27,15 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
-    /** ID del content coinvolto (se applicabile) */
-    @Column(name = "target_content_id")
-    private Long targetContentId;
+    /** Content coinvolto (REACTION, COMMENT, COMMENT_REACTION) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "content_id")
+    private Content content;
 
-    /** ID del commento coinvolto (se applicabile, es. COMMENT / COMMENT_REACTION) */
-    @Column(name = "target_comment_id")
-    private Long targetCommentId;
+    /** Commento coinvolto (COMMENT, COMMENT_REACTION) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "comment_id")
+    private Comment comment;
 
     @Builder.Default
     private boolean read = false;

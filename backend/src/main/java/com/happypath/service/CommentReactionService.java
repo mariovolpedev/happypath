@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,7 +37,7 @@ public class CommentReactionService {
 
         boolean isNew = !commentReactionRepository.existsByCommentAndUser(comment, user);
 
-        // Rimuovi eventuale reazione esistente
+        // Rimuovi eventuale reazione precedente (cambio tipo)
         commentReactionRepository.findByUserAndComment(user, comment)
                 .ifPresent(existing -> {
                     commentReactionRepository.delete(existing);
