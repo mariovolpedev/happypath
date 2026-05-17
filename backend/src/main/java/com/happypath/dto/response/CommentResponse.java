@@ -10,5 +10,7 @@ public record CommentResponse(
         AlterEgoResponse alterEgo,   // null se il commento è stato scritto come se stessi
         Long parentId,
         ContentStatus status,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        long replyCount,
+        CommentReactionSummaryResponse reactions
 ) {}

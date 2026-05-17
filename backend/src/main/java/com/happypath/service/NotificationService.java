@@ -3,8 +3,6 @@ package com.happypath.service;
 import com.happypath.model.*;
 import com.happypath.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,17 +12,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
 
-    @Transactional
-    public void notifyReaction(User actor, Content content) {
-        if (actor.getId().equals(content.getAuthor().getId())) return;
-        notificationRepository.save(Notification.builder()
-                .recipient(content.getAuthor())
-                .actor(actor)
-                .type(NotificationType.REACTION)
-                .content(content)
-                .build());
-    }
-
+    /** Notifica al proprietario del content quando riceve un commento. */
     @Transactional
     public void notifyComment(User actor, Content content, Comment comment) {
         if (actor.getId().equals(content.getAuthor().getId())) return;
@@ -32,42 +20,33 @@ public class NotificationService {
                 .recipient(content.getAuthor())
                 .actor(actor)
                 .type(NotificationType.COMMENT)
-                .content(content)
-                .comment(comment)
+                .targetContentId(content.getId())
+                .targetCommentId(comment.getId())
                 .build());
     }
 
+    /** Notifica all'autore del commento quando riceve una reazione. */
     @Transactional
-    public void notifyFollow(User actor, User recipient) {
-        if (actor.getId().equals(recipient.getId())) return;
+    public void notifyCommentReaction(User actor, Comment comment) {
+        if (actor.getId().equals(comment.getAuthor().getId())) return;
         notificationRepository.save(Notification.builder()
-                .recipient(recipient)
+                .recipient(comment.getAuthor())
                 .actor(actor)
-                .type(NotificationType.FOLLOW)
+                .type(NotificationType.COMMENT_REACTION)
+                .targetContentId(comment.getContent().getId())
+                .targetCommentId(comment.getId())
                 .build());
     }
 
-    public Page<Notification> getNotifications(User recipient, Pageable pageable) {
-        return notificationRepository.findByRecipientOrderByCreatedAtDesc(recipient, pageable);
-    }
-
-    public long countUnread(User recipient) {
-        return notificationRepository.countByRecipientAndReadFalse(recipient);
-    }
-
+    /** Notifica al proprietario del content quando riceve una reazione. */
     @Transactional
-    public void markAllRead(User recipient) {
-        notificationRepository.markAllReadByRecipient(recipient);
+    public void notifyReaction(User actor, Content content) {
+        if (actor.getId().equals(content.getAuthor().getId())) return;
+        notificationRepository.save(Notification.builder()
+                .recipient(content.getAuthor())
+                .actor(actor)
+                .type(NotificationType.REACTION)
+                .targetContentId(content.getId())
+                .build());
     }
-
-    @Transactional
-    public void markRead(Long notificationId, User recipient) {
-        notificationRepository.findById(notificationId).ifPresent(n -> {
-            if (n.getRecipient().getId().equals(recipient.getId())) {
-                n.setRead(true);
-                notificationRepository.save(n);
-            }
-        });
-    }
-
 }

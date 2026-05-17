@@ -12,12 +12,25 @@ import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    // --- metodi pre-esistenti ---
-    Page<Comment> findByContentAndParentIsNullAndStatusOrderByCreatedAtAsc(Content content, ContentStatus status, Pageable pageable);
-    Page<Comment> findByParentAndStatusOrderByCreatedAtAsc(Comment parent, ContentStatus status, Pageable pageable);
-    long countByContentAndStatus(Content content, ContentStatus status);
-    Page<Comment> findByAuthorAndStatusOrderByCreatedAtDesc(User author, ContentStatus status, Pageable pageable);
+    // Commenti radice di un content (nessun parent)
+    Page<Comment> findByContentAndParentIsNullAndStatusOrderByCreatedAtAsc(
+            Content content, ContentStatus status, Pageable pageable);
 
-    // --- nuovo metodo per il feed ---
-    List<Comment> findByAuthorInAndStatusOrderByCreatedAtDesc(List<User> authors, ContentStatus status);
+    // Risposte dirette a un commento
+    Page<Comment> findByParentAndStatusOrderByCreatedAtAsc(
+            Comment parent, ContentStatus status, Pageable pageable);
+
+    // Conteggio commenti radice per un content
+    long countByContentAndStatus(Content content, ContentStatus status);
+
+    // Conteggio risposte per un commento
+    long countByParentAndStatus(Comment parent, ContentStatus status);
+
+    // Attività commenti di un utente
+    Page<Comment> findByAuthorAndStatusOrderByCreatedAtDesc(
+            User author, ContentStatus status, Pageable pageable);
+
+    // Feed: commenti recenti di una lista di autori
+    List<Comment> findByAuthorInAndStatusOrderByCreatedAtDesc(
+            List<User> authors, ContentStatus status);
 }

@@ -1,7 +1,10 @@
 package com.happypath.model;
 
 public enum NotificationType {
-    REACTION,
+    FOLLOW,
     COMMENT,
-    FOLLOW
+    REACTION,
+    COMMENT_REACTION,
+    MENTION,
+    SYSTEM
 }
