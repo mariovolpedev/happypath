@@ -17,7 +17,6 @@ export interface UserSummary {
   avatarUrl?: string
   role: UserRole
   verified: boolean
-  /** True se l'utente ha già completato o saltato il tutorial al primo accesso */
   tutorialCompleted: boolean
 }
 
@@ -71,11 +70,17 @@ export interface ContentResponse {
   commentsCount: number
   reactionsByType: Record<string, number>
   myReaction?: string
-  /** Lista completa delle reazioni (utenti + alter ego) — opzionale, presente se inclusa dall'API */
   reactions?: ReactionEntry[]
   dedications: Array<{ from: UserSummary; to: UserSummary }>
   createdAt: string
   updatedAt: string
+}
+
+/** Riepilogo reazioni su un commento */
+export interface CommentReactionSummary {
+  total: number
+  counts: Partial<Record<ReactionType, number>>
+  myReaction?: ReactionType | null
 }
 
 export interface CommentResponse {
@@ -86,6 +91,8 @@ export interface CommentResponse {
   parentId?: number
   status: ContentStatus
   createdAt: string
+  replyCount: number
+  reactions: CommentReactionSummary | null
 }
 
 export interface FeedItemResponse {
@@ -127,7 +134,6 @@ export interface MessageResponse {
   sentAt: string
   attachedContent?: MessageContentSummary
   attachedUser?: UserSummary
-  /** URL MinIO dell'immagine allegata al messaggio */
   imageUrl?: string
 }
 
