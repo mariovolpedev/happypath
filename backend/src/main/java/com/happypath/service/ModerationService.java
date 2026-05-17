@@ -52,9 +52,9 @@ public class ModerationService {
                 .orElseThrow(() -> new HappyPathException("Utente non trovato", HttpStatus.NOT_FOUND));
 
         LocalDateTime expiresAt = switch (duration) {
-            case SHORT -> LocalDateTime.now().plusDays(1);
-            case MEDIUM -> LocalDateTime.now().plusDays(7);
-            case LONG -> LocalDateTime.now().plusDays(30);
+            case SHORT    -> LocalDateTime.now().plusDays(1);
+            case MEDIUM   -> LocalDateTime.now().plusDays(7);
+            case LONG     -> LocalDateTime.now().plusDays(30);
             case PERMANENT -> null;
         };
 
@@ -76,7 +76,6 @@ public class ModerationService {
         ban.setAdminDecision(adminDecision);
         ban.setDecidedBy(admin);
         banRepository.save(ban);
-        // Riattiva l'account se era disattivato
         User user = ban.getUser();
         if (!user.isActive()) {
             user.setActive(true);

@@ -9,9 +9,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
-@Getter
 public class HappyPathUserDetails implements UserDetails {
 
+    @Getter
     private final User user;
 
     public HappyPathUserDetails(User user) {
@@ -23,33 +23,15 @@ public class HappyPathUserDetails implements UserDetails {
         return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
 
-    @Override
-    public String getPassword() {
-        return user.getPasswordHash();
-    }
+    @Override public String getPassword()  { return user.getPasswordHash(); }
+    @Override public String getUsername()  { return user.getUsername(); }
 
-    @Override
-    public String getUsername() {
-        return user.getUsername();
-    }
+    @Override public boolean isAccountNonExpired()  { return true; }
+    @Override public boolean isCredentialsNonExpired() { return true; }
 
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    /** L'account è non-locked se è attivo (non bannato). */
+    @Override public boolean isAccountNonLocked() { return user.isActive(); }
 
-    @Override
-    public boolean isAccountNonLocked() {
-        return user.isActive();
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return user.isVerified();
-    }
+    /** L'account è abilitato se è attivo. */
+    @Override public boolean isEnabled() { return user.isActive(); }
 }

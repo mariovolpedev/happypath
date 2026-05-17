@@ -22,9 +22,6 @@ public class BlockService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
 
-    /**
-     * Blocca un utente: rimuove i follow reciproci e impedisce futuri follow.
-     */
     @Transactional
     public void block(User blocker, Long targetId) {
         if (blocker.getId().equals(targetId))
@@ -34,9 +31,8 @@ public class BlockService {
                 .orElseThrow(() -> new HappyPathException("Utente non trovato", HttpStatus.NOT_FOUND));
 
         if (blockRepository.existsByBlockerAndBlocked(blocker, blocked))
-            return; // già bloccato — idempotente
+            return;
 
-        // Rimuove i follow reciproci
         followRepository.findByFollowerAndFollowed(blocker, blocked).ifPresent(followRepository::delete);
         followRepository.findByFollowerAndFollowed(blocked, blocker).ifPresent(followRepository::delete);
 
@@ -50,12 +46,10 @@ public class BlockService {
         blockRepository.findByBlockerAndBlocked(blocker, blocked).ifPresent(blockRepository::delete);
     }
 
-    /** True se blockerId ha bloccato blockedId */
     public boolean isBlocked(Long blockerId, Long blockedId) {
         return blockRepository.existsByBlockerIdAndBlockedId(blockerId, blockedId);
     }
 
-    /** True se esiste un blocco in qualsiasi direzione tra i due utenti */
     public boolean isBlockedInAnyDirection(Long userId1, Long userId2) {
         return blockRepository.existsByBlockerIdAndBlockedId(userId1, userId2)
                 || blockRepository.existsByBlockerIdAndBlockedId(userId2, userId1);
@@ -63,11 +57,7 @@ public class BlockService {
 
     public List<UserSummary> getBlockedUsers(User blocker) {
         return blockRepository.findByBlocker(blocker).stream()
-                .map(b -> {
-                    User u = b.getBlocked();
-                    return new UserSummary(u.getId(), u.getUsername(), u.getDisplayName(),
-                            u.getAvatarUrl(), u.getRole(), u.isVerified());
-                })
+                .map(b -> UserSummary.from(b.getBlocked()))
                 .toList();
     }
 }

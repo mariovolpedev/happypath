@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import ExplorePage from './pages/ExplorePage'
+import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import CreateContentPage from './pages/CreateContentPage'
@@ -14,11 +15,12 @@ import AlterEgoPage from './pages/AlterEgoPage'
 import AlterEgoProfilePage from './pages/AlterEgoProfilePage'
 import ThemesPage from './pages/ThemesPage'
 import FeedPage from './pages/FeedPage'
+import TutorialOverlay from './components/tutorial/TutorialOverlay'
 import { useAuthStore } from './store/authStore'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
-  return isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />
+  return isAuthenticated() ? <>{children}</> : <Navigate to="/" replace />
 }
 
 function ModRoute({ children }: { children: React.ReactNode }) {
@@ -26,27 +28,40 @@ function ModRoute({ children }: { children: React.ReactNode }) {
   return isModeratorOrAdmin() ? <>{children}</> : <Navigate to="/" replace />
 }
 
+/** Route "/": LandingPage per i guest, ExplorePage per gli autenticati */
+function HomeRoute() {
+  const { isAuthenticated } = useAuthStore()
+  return isAuthenticated() ? <ExplorePage /> : <LandingPage />
+}
+
 export default function App() {
+  const { showTutorial, dismissTutorial } = useAuthStore()
+
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/"            element={<ExplorePage />} />
-        <Route path="/home"        element={<PrivateRoute><FeedPage /></PrivateRoute>} />
-        <Route path="/feed"        element={<Navigate to="/home" replace />} />
-        <Route path="/themes"      element={<ThemesPage />} />
-        <Route path="/search"      element={<SearchPage />} />
-        <Route path="/login"       element={<LoginPage />} />
-        <Route path="/register"    element={<RegisterPage />} />
-        <Route path="/create"      element={<PrivateRoute><CreateContentPage /></PrivateRoute>} />
-        <Route path="/content/:id" element={<ContentDetailPage />} />
-        <Route path="/u/:username" element={<ProfilePage />} />
-        <Route path="/ae/:id"      element={<AlterEgoProfilePage />} />
-        <Route path="/messages"    element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
-        <Route path="/settings"    element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-        <Route path="/alter-egos"  element={<PrivateRoute><AlterEgoPage /></PrivateRoute>} />
-        <Route path="/moderation"  element={<ModRoute><ModerationPage /></ModRoute>} />
-        <Route path="*"            element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <>
+      {/* Tutorial overlay — mostrato al primo accesso, skippabile */}
+      {showTutorial && <TutorialOverlay onClose={dismissTutorial} />}
+
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/"            element={<HomeRoute />} />
+          <Route path="/home"        element={<PrivateRoute><FeedPage /></PrivateRoute>} />
+          <Route path="/feed"        element={<Navigate to="/home" replace />} />
+          <Route path="/themes"      element={<ThemesPage />} />
+          <Route path="/search"      element={<SearchPage />} />
+          <Route path="/login"       element={<LoginPage />} />
+          <Route path="/register"    element={<RegisterPage />} />
+          <Route path="/create"      element={<PrivateRoute><CreateContentPage /></PrivateRoute>} />
+          <Route path="/content/:id" element={<ContentDetailPage />} />
+          <Route path="/u/:username" element={<ProfilePage />} />
+          <Route path="/ae/:id"      element={<AlterEgoProfilePage />} />
+          <Route path="/messages"    element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+          <Route path="/settings"    element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+          <Route path="/alter-egos"  element={<PrivateRoute><AlterEgoPage /></PrivateRoute>} />
+          <Route path="/moderation"  element={<ModRoute><ModerationPage /></ModRoute>} />
+          <Route path="*"            element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </>
   )
 }

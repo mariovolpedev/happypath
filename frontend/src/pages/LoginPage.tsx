@@ -7,7 +7,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setAuth } = useAuthStore()
+  const { setAuth, markFirstLogin } = useAuthStore()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,6 +16,7 @@ export default function LoginPage() {
     try {
       const data = await login(form)
       setAuth(data.token, data.user)
+      markFirstLogin()
       navigate('/home')
     } catch { setError('Credenziali non valide') }
     finally { setLoading(false) }
@@ -25,7 +26,7 @@ export default function LoginPage() {
     <div className="max-w-md mx-auto">
       <div className="card">
         <h1 className="font-display text-2xl font-bold mb-1 text-center">✨ Bentornato!</h1>
-        <p className="text-center text-gray-500 text-sm mb-6">Accedi a HappyPath</p>
+        <p className="text-center text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Accedi a HappyPath</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input className="input" placeholder="Username" value={form.username}
             onChange={e => setForm(f => ({ ...f, username: e.target.value }))} required />
@@ -36,7 +37,7 @@ export default function LoginPage() {
             {loading ? 'Accesso...' : 'Accedi'}
           </button>
         </form>
-        <p className="text-center text-sm text-gray-500 mt-4">
+        <p className="text-center text-sm mt-4" style={{ color: 'var(--text-muted)' }}>
           Non hai un account? <Link to="/register" className="text-happy-600 font-medium">Registrati</Link>
         </p>
       </div>
