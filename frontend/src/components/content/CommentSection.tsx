@@ -7,10 +7,12 @@ import {
   getReplies,
   reactToComment,
   removeCommentReaction,
+  getCommentReactions,
 } from '../../api/content'
 import { getMyAlterEgos } from '../../api/alterEgos'
 import type {
   CommentResponse,
+  CommentReactionEntry,
   AlterEgoResponse,
   ReactionType,
   CommentReactionSummary,
@@ -22,7 +24,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 
 // ---------------------------------------------------------------------------
-// Emoji map per le reazioni
+// Costanti
 // ---------------------------------------------------------------------------
 const REACTION_EMOJI: Record<ReactionType, string> = {
   HEART: '❤️',
@@ -33,7 +35,126 @@ const REACTION_EMOJI: Record<ReactionType, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// Sottomisura: barra emoji reazioni per un commento
+// Modal "chi ha reagito" — identico nello stile a ReactorsModal di ContentCard
+// ---------------------------------------------------------------------------
+function CommentReactorsModal({
+  contentId,
+  commentId,
+  total,
+  onClose,
+}: {
+  contentId: number
+  commentId: number
+  total: number
+  onClose: () => void
+}) {
+  const [reactions, setReactions] = useState<CommentReactionEntry[]>([])
+  const [loading,   setLoading]   = useState(true)
+
+  useEffect(() => {
+    getCommentReactions(contentId, commentId)
+      .then(setReactions)
+      .finally(() => setLoading(false))
+  }, [contentId, commentId])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full sm:w-[400px] max-h-[70vh] rounded-t-2xl sm:rounded-2xl
+                   flex flex-col overflow-hidden"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Reazioni al commento · {total}
+          </span>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full
+                       hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-lg"
+            style={{ color: 'var(--text-faint)' }}
+            aria-label="Chiudi"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Corpo */}
+        <div className="overflow-y-auto flex-1 px-2 py-2">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <span className="text-2xl animate-spin">&#9696;</span>
+            </div>
+          ) : reactions.length === 0 ? (
+            <div className="flex flex-col items-center py-10 gap-2">
+              <span className="text-3xl">❤️</span>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Nessuna reazione ancora.</p>
+            </div>
+          ) : (
+            reactions.map(r => (
+              <Link
+                key={r.id}
+                to={r.alterEgo ? `/ae/${r.alterEgo.id}` : `/u/${r.user.username}`}
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors
+                           hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {/* Avatar con emoji badge */}
+                <div className="relative flex-shrink-0">
+                  {r.alterEgo ? (
+                    r.alterEgo.avatarUrl
+                      ? <img src={r.alterEgo.avatarUrl} alt={r.alterEgo.name}
+                             className="w-9 h-9 rounded-full object-cover" />
+                      : <span className="w-9 h-9 flex items-center justify-center text-xl">🎭</span>
+                  ) : (
+                    <Avatar user={r.user} size="sm" />
+                  )}
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 text-xs leading-none
+                               w-4 h-4 flex items-center justify-center rounded-full"
+                    style={{ backgroundColor: 'var(--bg-card)' }}
+                  >
+                    {REACTION_EMOJI[r.type] ?? '❤️'}
+                  </span>
+                </div>
+
+                {/* Nome */}
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                    {r.alterEgo ? r.alterEgo.name : r.user.displayName}
+                  </span>
+                  {r.alterEgo && (
+                    <span className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>
+                      via {r.user.displayName}
+                    </span>
+                  )}
+                </div>
+
+                {/* Tipo reazione a destra */}
+                <span className="ml-auto text-lg flex-shrink-0">{REACTION_EMOJI[r.type] ?? '❤️'}</span>
+              </Link>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Barra reazioni inline per un singolo commento
 // ---------------------------------------------------------------------------
 function ReactionBar({
   contentId,
@@ -48,11 +169,13 @@ function ReactionBar({
   alterEgoId?: number
   onUpdate: (updated: CommentReactionSummary) => void
 }) {
-  const [open, setOpen]     = useState(false)
-  const [busy, setBusy]     = useState(false)
-  const { isAuthenticated } = useAuthStore()
+  const [pickerOpen,   setPickerOpen]   = useState(false)
+  const [reactorsOpen, setReactorsOpen] = useState(false)
+  const [busy,         setBusy]         = useState(false)
+  const { isAuthenticated }             = useAuthStore()
 
   const myReaction = reactions?.myReaction ?? null
+  const total      = reactions?.total ?? 0
 
   const handleReact = async (type: ReactionType) => {
     if (!isAuthenticated() || busy) return
@@ -67,32 +190,50 @@ function ReactionBar({
       onUpdate(updated)
     } finally {
       setBusy(false)
-      setOpen(false)
+      setPickerOpen(false)
     }
   }
 
-  const total = reactions?.total ?? 0
-
-  // Raggruppa le emoji attive per mostrarle in linea
+  // Emoji attive in linea (prime 3 per frequenza)
   const activeEmojis = Object.entries(reactions?.counts ?? {})
     .filter(([, v]) => (v ?? 0) > 0)
+    .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+    .slice(0, 3)
     .map(([k]) => REACTION_EMOJI[k as ReactionType])
 
   return (
     <div className="flex items-center gap-2 mt-2">
-      {/* Riepilogo reazioni esistenti */}
+
+      {/* Riepilogo cliccabile: apre il modal chi-ha-reagito */}
       {total > 0 && (
-        <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-faint)' }}>
-          <span>{activeEmojis.join('')}</span>
+        <button
+          onClick={() => setReactorsOpen(true)}
+          className="flex items-center gap-1 text-xs hover:underline transition-colors"
+          style={{ color: 'var(--text-faint)' }}
+        >
+          <span className="flex -space-x-0.5">
+            {activeEmojis.map((emoji, i) => (
+              <span
+                key={i}
+                className="w-4 h-4 flex items-center justify-center rounded-full text-xs"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                {emoji}
+              </span>
+            ))}
+          </span>
           <span>{total}</span>
-        </span>
+        </button>
       )}
 
-      {/* Pulsante per aprire il picker */}
+      {/* Pulsante apri picker */}
       {isAuthenticated() && (
         <div className="relative">
           <button
-            onClick={() => setOpen(p => !p)}
+            onClick={() => setPickerOpen(p => !p)}
             className="text-xs px-1.5 py-0.5 rounded-full transition-colors"
             style={{
               backgroundColor: myReaction ? 'var(--happy-100, #fef3f2)' : 'var(--bg-offset)',
@@ -104,7 +245,7 @@ function ReactionBar({
             {myReaction ? REACTION_EMOJI[myReaction] : '😊'} +
           </button>
 
-          {open && (
+          {pickerOpen && (
             <div
               className="absolute bottom-full mb-1 left-0 flex gap-1 p-1.5 rounded-xl shadow-lg z-20"
               style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
@@ -127,12 +268,22 @@ function ReactionBar({
           )}
         </div>
       )}
+
+      {/* Modal chi ha reagito */}
+      {reactorsOpen && (
+        <CommentReactorsModal
+          contentId={contentId}
+          commentId={commentId}
+          total={total}
+          onClose={() => setReactorsOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Componente singolo commento (ricorsivo per le risposte)
+// Componente singolo commento
 // ---------------------------------------------------------------------------
 function CommentItem({
   comment,
@@ -174,7 +325,6 @@ function CommentItem({
     currentUserRole === 'MODERATOR' ||
     currentUserRole === 'ADMIN'
 
-  // Carica le risposte al primo expand
   const handleToggleReplies = useCallback(async () => {
     if (!repliesLoaded) {
       const page = await getReplies(contentId, comment.id)
@@ -184,7 +334,6 @@ function CommentItem({
     setRepliesOpen(p => !p)
   }, [contentId, comment.id, repliesLoaded])
 
-  // Invia una risposta
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!replyText.trim()) return
@@ -212,12 +361,11 @@ function CommentItem({
       </Link>
 
       <div className="flex-1">
-        {/* Bubble commento */}
         <div
           className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
         >
-          {/* Header: autore + tempo + elimina */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               {comment.alterEgo ? (
@@ -229,20 +377,13 @@ function CommentItem({
                   >
                     {comment.alterEgo.name}
                   </Link>
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded-full"
-                    style={{ backgroundColor: '#EEEDFE', color: '#534AB7' }}
-                  >
+                  <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#EEEDFE', color: '#534AB7' }}>
                     🎭
                   </span>
                   <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
                     via{' '}
                     <UserHoverCard username={comment.author.username} displayName={comment.author.displayName}>
-                      <Link
-                        to={`/u/${comment.author.username}`}
-                        className="hover:text-happy-600 transition-colors"
-                        style={{ color: 'var(--text-faint)' }}
-                      >
+                      <Link to={`/u/${comment.author.username}`} className="hover:text-happy-600 transition-colors" style={{ color: 'var(--text-faint)' }}>
                         {comment.author.displayName}
                       </Link>
                     </UserHoverCard>
@@ -250,11 +391,7 @@ function CommentItem({
                 </>
               ) : (
                 <UserHoverCard username={comment.author.username} displayName={comment.author.displayName}>
-                  <Link
-                    to={`/u/${comment.author.username}`}
-                    className="font-semibold text-sm hover:text-happy-600 transition-colors"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
+                  <Link to={`/u/${comment.author.username}`} className="font-semibold text-sm hover:text-happy-600 transition-colors" style={{ color: 'var(--text-primary)' }}>
                     {comment.author.displayName}
                   </Link>
                 </UserHoverCard>
@@ -267,10 +404,7 @@ function CommentItem({
               </span>
               {canDelete && (
                 <button
-                  onClick={async () => {
-                    await deleteComment(contentId, comment.id)
-                    onDelete(comment.id)
-                  }}
+                  onClick={async () => { await deleteComment(contentId, comment.id); onDelete(comment.id) }}
                   className="text-xs text-red-400 hover:text-red-600"
                 >
                   ✕
@@ -279,10 +413,10 @@ function CommentItem({
             </div>
           </div>
 
-          {/* Testo commento */}
+          {/* Testo */}
           <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{comment.text}</p>
 
-          {/* Barra reazioni */}
+          {/* Barra reazioni con accesso al modal */}
           <ReactionBar
             contentId={contentId}
             commentId={comment.id}
@@ -292,7 +426,7 @@ function CommentItem({
           />
         </div>
 
-        {/* Azioni sotto la bubble: Rispondi + mostra risposte */}
+        {/* Azioni sotto: Rispondi + mostra risposte */}
         {depth === 0 && (
           <div className="flex items-center gap-3 mt-1 ml-1">
             {isAuthenticated() && (
@@ -310,9 +444,7 @@ function CommentItem({
                 className="text-xs font-medium transition-colors"
                 style={{ color: 'var(--text-faint)' }}
               >
-                {repliesOpen
-                  ? 'Nascondi risposte'
-                  : `▾ ${replyCount} ${replyCount === 1 ? 'risposta' : 'risposte'}`}
+                {repliesOpen ? 'Nascondi risposte' : `▾ ${replyCount} ${replyCount === 1 ? 'risposta' : 'risposte'}`}
               </button>
             )}
           </div>
@@ -342,18 +474,14 @@ function CommentItem({
                 maxLength={1000}
                 autoFocus
               />
-              <button
-                type="submit"
-                disabled={replyLoading || !replyText.trim()}
-                className="btn-primary self-end text-sm"
-              >
+              <button type="submit" disabled={replyLoading || !replyText.trim()} className="btn-primary self-end text-sm">
                 Invia
               </button>
             </div>
           </form>
         )}
 
-        {/* Lista risposte espansa */}
+        {/* Risposte espanse */}
         {repliesOpen && replies.length > 0 && (
           <div className="mt-2 space-y-0">
             {replies.map(reply => (
@@ -420,14 +548,11 @@ export default function CommentSection({ contentId }: { contentId: number }) {
         💬 Commenti ({comments.length})
       </h3>
 
-      {/* Form nuovo commento */}
       {isAuthenticated() && (
         <form onSubmit={handleSubmit} className="mb-6 space-y-2">
           {alterEgos.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs shrink-0" style={{ color: 'var(--text-faint)' }}>
-                Scrivi come:
-              </span>
+              <span className="text-xs shrink-0" style={{ color: 'var(--text-faint)' }}>Scrivi come:</span>
               <select
                 className="input text-sm py-1.5 w-auto"
                 value={selectedAeId ?? ''}
@@ -455,7 +580,6 @@ export default function CommentSection({ contentId }: { contentId: number }) {
         </form>
       )}
 
-      {/* Lista commenti radice */}
       <div className="space-y-4">
         {comments.map(c => (
           <CommentItem

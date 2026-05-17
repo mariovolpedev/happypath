@@ -1,8 +1,10 @@
 package com.happypath.controller;
 
 import com.happypath.dto.request.CommentRequest;
+import com.happypath.dto.response.CommentReactionResponse;
 import com.happypath.dto.response.CommentResponse;
 import com.happypath.security.HappyPathUserDetails;
+import com.happypath.service.CommentReactionService;
 import com.happypath.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,12 +16,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/contents/{contentId}/comments")
 @RequiredArgsConstructor
 public class CommentController {
 
-    private final CommentService commentService;
+    private final CommentService         commentService;
+    private final CommentReactionService commentReactionService;
 
     /** Lista commenti radice di un post (paginata). */
     @GetMapping
@@ -63,5 +68,16 @@ public class CommentController {
             @AuthenticationPrincipal HappyPathUserDetails details) {
         commentService.deleteComment(commentId, details.getUser());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Lista dettagliata di chi ha reagito a un commento.
+     * Accessibile anche senza autenticazione.
+     */
+    @GetMapping("/{commentId}/reactions")
+    public ResponseEntity<List<CommentReactionResponse>> getCommentReactions(
+            @PathVariable Long contentId,
+            @PathVariable Long commentId) {
+        return ResponseEntity.ok(commentReactionService.getReactions(commentId));
     }
 }

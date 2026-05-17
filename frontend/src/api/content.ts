@@ -1,5 +1,5 @@
 import api from './client'
-import type { ContentResponse, CommentResponse, Page, ReactionType } from '../types'
+import type { ContentResponse, CommentResponse, CommentReactionEntry, Page, ReactionType } from '../types'
 
 export const getFeed = (page = 0, themeId?: number) =>
   api
@@ -73,6 +73,12 @@ export const addComment = (
 
 export const deleteComment = (contentId: number, commentId: number) =>
   api.delete(`/contents/${contentId}/comments/${commentId}`)
+
+/** Lista dettagliata di chi ha reagito a un commento */
+export const getCommentReactions = (contentId: number, commentId: number) =>
+  api
+    .get<CommentReactionEntry[]>(`/contents/${contentId}/comments/${commentId}/reactions`)
+    .then(r => r.data)
 
 /** Aggiunge o sostituisce la reazione dell'utente su un commento */
 export const reactToComment = (

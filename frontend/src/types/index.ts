@@ -7,7 +7,6 @@ export type ReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
 export type FeedSortStrategy = 'RECENT' | 'RANDOM' | 'SMART'
 export type FeedItemType = 'CONTENT' | 'COMMENT' | 'REACTION' | 'FOLLOW_EVENT'
 
-// Alias mantenuto per retrocompatibilità
 export type Role = UserRole
 
 export interface UserSummary {
@@ -55,6 +54,15 @@ export interface ReactionEntry {
   type: ReactionType
   user: UserSummary
   alterEgo?: AlterEgoResponse
+}
+
+/** Singola reazione su un commento — risposta dell'API /reactions */
+export interface CommentReactionEntry {
+  id: number
+  type: ReactionType
+  user: UserSummary
+  alterEgo?: AlterEgoResponse
+  createdAt: string
 }
 
 export interface ContentResponse {
