@@ -12,9 +12,7 @@ import com.happypath.repository.BlockRepository;
 import com.happypath.repository.FollowRepository;
 import com.happypath.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -57,6 +55,15 @@ public class UserService {
     @Transactional
     public User save(User user) {
         return userRepository.save(user);
+    }
+
+    /**
+     * Converts a User entity to UserSummary via MapStruct.
+     * Exposed publicly so controllers (e.g. UserController.completeTutorial)
+     * can obtain a summary after a save without needing direct mapper injection.
+     */
+    public UserSummary toSummary(User user) {
+        return userMapper.toSummary(user);
     }
 
     // ---------------------------------------------------------------

@@ -14,8 +14,9 @@ spring:
 
   jpa:
     hibernate:
-      # IMPORTANT: schema is managed exclusively by Flyway — never by Hibernate.
-      # Use 'validate' so Hibernate checks entities match the DB schema but makes NO changes.
+      # FIX: schema is managed exclusively by Flyway.
+      # 'validate' makes Hibernate verify entities match the DB schema but
+      # makes NO structural changes — preventing conflicts with Flyway migrations.
       ddl-auto: validate
     generate-ddl: false
     show-sql: false
@@ -43,6 +44,14 @@ spring:
       max-file-size: 10MB
       max-request-size: 11MB
 
+  # Actuator HTTP Basic credentials.
+  # Override ALL of these via environment variables in production.
+  security:
+    user:
+      name: ${ACTUATOR_USER:actuator}
+      password: ${ACTUATOR_PASSWORD:change-me-in-production}
+      roles: ACTUATOR
+
 springdoc:
   swagger-ui:
     operationsSorter: method
@@ -56,11 +65,10 @@ management:
   endpoints:
     web:
       exposure:
+        # Expose health (public liveness probe), info, metrics.
+        # /actuator/** is protected by SecurityConfig.actuatorFilterChain (ROLE_ACTUATOR).
         include: health,info,metrics
       base-path: /actuator
-  # Protect actuator endpoints with a dedicated security user
-  security:
-    enabled: true
 
 server:
   port: 8080
@@ -81,11 +89,6 @@ happypath:
     refresh-expiration-ms: 604800000
   cors:
     allowed-origins: ${HAPPYPATH_CORS_ALLOWED_ORIGINS:http://localhost:5173}
-
-# Actuator security credentials (override via env vars in production)
-spring.security.user.name: ${ACTUATOR_USER:actuator}
-spring.security.user.password: ${ACTUATOR_PASSWORD:change-me-in-production}
-spring.security.user.roles: ACTUATOR
 
 # MinIO / S3-compatible storage
 minio:

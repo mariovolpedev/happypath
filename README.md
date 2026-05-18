@@ -2,7 +2,7 @@
 
 **Il social network dei contenuti semplici e felici.**
 
-HappyPath è una piattaforma social tematica in cui gli utenti possono condividere contenuti *semplici e felici* — lontani da violenza, drammi e negatività.
+HappyPath è una piattaforma social tematica in cui gli utenti possono condividere **contenuti** *semplici e felici* — lontani da violenza, drammi e negatività.
 
 ---
 
@@ -13,6 +13,8 @@ HappyPath è una piattaforma social tematica in cui gli utenti possono condivide
 | Backend | Spring Boot 3.2, Java 21, Maven |
 | Database | PostgreSQL 16 |
 | Sicurezza | Spring Security + JWT (jjwt 0.12) |
+| Caching | Redis |
+| WebSocket | Spring STOMP + SockJS (notifiche real-time) |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
 | State management | Zustand |
 | Containerizzazione | Docker + Docker Compose |
@@ -30,10 +32,15 @@ docker compose up --build
 ```
 
 - Frontend: http://localhost:5173
-- Backend API: http://localhost:8080
+- Backend API: http://localhost:8080/api
+- Actuator (health): http://localhost:8080/api/actuator/health *(pubblico)*
+- Actuator (metrics/info): richiede HTTP Basic con `ACTUATOR_USER` / `ACTUATOR_PASSWORD`
 - Credenziali di default:
   - Admin: `admin` / `Admin1234!`
   - Moderatore: `moderator` / `Mod1234!`
+
+> **⚠️ Sicurezza**: in produzione sovrascrivere sempre le variabili d'ambiente
+> `HAPPYPATH_JWT_SECRET`, `ACTUATOR_USER`, `ACTUATOR_PASSWORD`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`.
 
 ### Sviluppo locale
 
@@ -59,10 +66,11 @@ npm run dev
 happypath/
 ├── backend/                   # Spring Boot 3
 │   └── src/main/java/com/happypath/
-│       ├── config/            # SecurityConfig, DataInitializer
+│       ├── config/            # SecurityConfig, WebSocketConfig, DataInitializer
 │       ├── controller/        # REST controllers
 │       ├── dto/               # Request/Response DTOs
 │       ├── exception/         # GlobalExceptionHandler
+│       ├── mapper/            # MapStruct interfaces (entity → DTO)
 │       ├── model/             # JPA entities
 │       ├── repository/        # Spring Data repositories
 │       ├── security/          # JWT, UserDetails
@@ -71,7 +79,7 @@ happypath/
     └── src/
         ├── api/               # Axios client + endpoint functions
         ├── components/        # UI components
-        ├── hooks/             # Custom React hooks
+        ├── hooks/             # Custom React hooks (incl. useNotificationSocket)
         ├── pages/             # Page components
         ├── store/             # Zustand state
         └── types/             # TypeScript interfaces
@@ -96,8 +104,8 @@ happypath/
 | POST | `/api/contents` | Crea contenuto 🔒 |
 | PUT | `/api/contents/{id}` | Modifica contenuto 🔒 |
 | DELETE | `/api/contents/{id}` | Elimina contenuto 🔒 |
-| POST | `/api/contents/{id}/reactions` | Reagisci 🔒 |
-| GET | `/api/contents/{id}/comments` | Commenti |
+| POST | `/api/contents/{id}/reactions` | Reagisci a un contenuto 🔒 |
+| GET | `/api/contents/{id}/comments` | Commenti di un contenuto |
 | POST | `/api/contents/{id}/comments` | Aggiungi commento 🔒 |
 
 ### Utenti
@@ -105,9 +113,17 @@ happypath/
 |--------|----------|-------------|
 | GET | `/api/users/{username}/profile` | Profilo pubblico |
 | PATCH | `/api/users/me` | Aggiorna profilo 🔒 |
+| POST | `/api/users/me/avatar` | Carica avatar (JPEG/PNG/WebP/GIF, max 5 MB) 🔒 |
 | POST | `/api/users/{id}/follow` | Segui utente 🔒 |
 | DELETE | `/api/users/{id}/follow` | Smetti di seguire 🔒 |
 | GET | `/api/users/search?q=` | Cerca utenti |
+
+### Notifiche
+| Metodo | Endpoint | Descrizione |
+|--------|----------|-------------|
+| GET | `/api/notifications` | Lista notifiche paginate 🔒 |
+| PATCH | `/api/notifications/read-all` | Segna tutte come lette 🔒 |
+| **WS** | `ws://host/api/ws` (STOMP) | Push real-time su `/user/queue/notifications` 🔒 |
 
 ### Moderazione (🛡️ MODERATOR/ADMIN)
 | Metodo | Endpoint | Descrizione |
@@ -127,6 +143,21 @@ happypath/
 
 ---
 
+## Notifiche real-time (WebSocket)
+
+Il server invia notifiche in push via STOMP appena vengono generate (follow, reazione, commento). Il frontend si connette con `useNotificationSocket` (vedi `frontend/src/hooks/useNotificationSocket.ts`):
+
+```typescript
+useNotificationSocket((notification) => {
+  // notification: { id, actor, type, contentId, contentTitle, read, createdAt, ... }
+  addToastNotification(notification)
+})
+```
+
+Il JWT viene passato nell'header `Authorization` del frame STOMP CONNECT. Se l'utente non è connesso, la notifica è comunque persistita su DB e recuperabile via REST al prossimo accesso.
+
+---
+
 ## Ruoli utente
 
 | Ruolo | Descrizione |
@@ -136,5 +167,4 @@ happypath/
 | `MODERATOR` | Gestisce segnalazioni, può censurare/eliminare contenuti e bannare utenti |
 | `ADMIN` | Accesso completo. Decisioni finali su ban contestati |
 
-Gli utenti non registrati possono visualizzare tutti i contenuti (link diretto).
-
+Gli utenti non registrati possono visualizzare tutti i contenuti tramite link diretto.
