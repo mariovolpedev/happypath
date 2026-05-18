@@ -2,7 +2,6 @@ package com.happypath.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,7 +11,9 @@ import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.net.URLConnection;
 import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +21,11 @@ import java.util.UUID;
 /**
  * Gestisce upload, download (presigned URL) ed eliminazione di file
  * su MinIO tramite l'SDK AWS S3 v2.
+ *
+ * MIME detection: usa {@link URLConnection#guessContentTypeFromStream} (JDK built-in)
+ * al posto di Apache Tika, evitando una dipendenza esterna pesante (~5 MB).
+ * guessContentTypeFromStream legge i magic bytes iniziali del file (fino a ~12 byte)
+ * ed è sufficiente per discriminare i tipi immagine/video ammessi.
  */
 @Slf4j
 @Service
@@ -48,13 +54,6 @@ public class MediaStorageService {
     // Upload
     // -------------------------------------------------------------------------
 
-    /**
-     * Carica un file su MinIO e restituisce l'URL pubblico.
-     *
-     * @param file       il file ricevuto dal client (MultipartFile)
-     * @param subfolder  cartella logica all'interno del bucket (es. "images", "videos")
-     * @return URL pubblico del file caricato
-     */
     public String upload(MultipartFile file, String subfolder) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File non può essere vuoto");
@@ -91,11 +90,6 @@ public class MediaStorageService {
     // Delete
     // -------------------------------------------------------------------------
 
-    /**
-     * Elimina un oggetto dal bucket.
-     *
-     * @param objectKey chiave S3 dell'oggetto (es. "images/uuid-filename.jpg")
-     */
     public void delete(String objectKey) {
         try {
             s3Client.deleteObject(DeleteObjectRequest.builder()
@@ -110,12 +104,9 @@ public class MediaStorageService {
     }
 
     // -------------------------------------------------------------------------
-    // Presigned URL (opzionale – utile per accesso privato)
+    // Presigned URL
     // -------------------------------------------------------------------------
 
-    /**
-     * Genera un presigned URL valido per {@code durationMinutes} minuti.
-     */
     public String generatePresignedUrl(String objectKey, int durationMinutes) {
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(durationMinutes))
@@ -128,14 +119,26 @@ public class MediaStorageService {
     // Helpers privati
     // -------------------------------------------------------------------------
 
+    /**
+     * Rileva il MIME type reale del file leggendo i magic bytes iniziali.
+     *
+     * Usa {@link URLConnection#guessContentTypeFromStream} che ispeziona
+     * i primi byte del file (non si fida del Content-Type dichiarato dal client).
+     * Richiede un {@link BufferedInputStream} per supportare mark/reset.
+     *
+     * Fallback: se la detection fallisce o restituisce null, usa il content-type
+     * dichiarato dal client. L'eventuale tipo non ammesso viene poi bloccato da
+     * {@link #validateFile}.
+     */
     private String detectMimeType(MultipartFile file) {
-        Tika tika = new Tika();
-        try {
-            return tika.detect(file.getInputStream());
-        } catch (IOException e) {
-            // fallback al content-type dichiarato dal client
-            return file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+        try (BufferedInputStream bis = new BufferedInputStream(file.getInputStream())) {
+            String detected = URLConnection.guessContentTypeFromStream(bis);
+            if (detected != null) return detected;
+        } catch (IOException ignored) {
+            // fall through to client-declared type
         }
+        String declared = file.getContentType();
+        return declared != null ? declared : "application/octet-stream";
     }
 
     private void validateFile(MultipartFile file, String mimeType) {
@@ -164,7 +167,6 @@ public class MediaStorageService {
     }
 
     private String buildPublicUrl(String objectKey) {
-        // es: http://localhost:9000/happypath-media/images/uuid.jpg
         return publicUrl + "/" + bucket + "/" + objectKey;
     }
 }
