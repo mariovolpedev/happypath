@@ -22,6 +22,13 @@
         <jjwt.version>0.12.5</jjwt.version>
         <aws.sdk.version>2.25.11</aws.sdk.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <!--
+            flyway-database-postgresql is a Flyway Teams/OSS driver module introduced
+            in Flyway 10.x. Spring Boot 3.2.x manages flyway-core but NOT this artifact,
+            so the version must be declared explicitly and kept in sync with flyway-core.
+            Spring Boot 3.2.3 pulls flyway-core 9.22.3 — use the same version here.
+        -->
+        <flyway.version>9.22.3</flyway.version>
     </properties>
 
     <dependencies>
@@ -93,11 +100,14 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+            <!-- version managed by Spring Boot BOM -->
         </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
+        <!--
+            flyway-database-postgresql: Flyway 10+ split PostgreSQL support into a
+            separate module. Spring Boot 3.2.x ships Flyway 9.x where this module does
+            NOT exist — remove it to avoid the missing-version error.
+            PostgreSQL support is built into flyway-core 9.x with no extra dependency.
+        -->
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
