@@ -40,6 +40,38 @@ const EMOJI_SECTIONS = [
   },
 ]
 
+/**
+ * Classi CSS per il pulsante segui/smetti di seguire.
+ *
+ * BUG FIXATO: in precedenza lo stato "seguito" usava bg-hp-primary + text-white,
+ * che in dark mode spariva perché il colore di sfondo della card e il testo
+ * bianco si confondevano visivamente.
+ *
+ * Fix:
+ *  - Stato NON seguito  → bordo + testo colorato, sfondo trasparente (visibile
+ *                         sia in light che dark mode)
+ *  - Stato SEGUITO      → sfondo verde tenue con testo verde scuro in light mode;
+ *                         sfondo verde scuro con testo verde chiaro in dark mode.
+ *                         Mai testo bianco su sfondo che potrebbe scomparire.
+ */
+const followBtnClass = (followed: boolean) =>
+  followed
+    ? [
+        'flex-shrink-0 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors',
+        // light
+        'bg-green-100 text-green-700 hover:bg-green-200',
+        // dark
+        'dark:bg-green-900/40 dark:text-green-300 dark:hover:bg-green-900/60',
+      ].join(' ')
+    : [
+        'flex-shrink-0 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors',
+        'border',
+        // light
+        'border-hp-primary text-hp-primary bg-transparent hover:bg-hp-primary/10',
+        // dark
+        'dark:border-hp-primary dark:text-hp-primary dark:hover:bg-hp-primary/20',
+      ].join(' ')
+
 export default function ThemesPage() {
   const { isAuthenticated } = useAuthStore()
   const authed = isAuthenticated()
@@ -109,7 +141,7 @@ export default function ThemesPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display font-bold text-2xl text-gray-800">🏷️ Temi</h1>
+        <h1 className="font-display font-bold text-2xl text-gray-800 dark:text-gray-100">🏷️ Temi</h1>
         {authed && (
           <button onClick={() => setShowCreate(v => !v)} className="btn-primary">
             {showCreate ? 'Annulla' : '+ Nuovo tema'}
@@ -119,16 +151,15 @@ export default function ThemesPage() {
 
       {showCreate && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-3">
-          <h2 className="font-semibold text-gray-700">Crea un tema personalizzato</h2>
+          <h2 className="font-semibold text-gray-700 dark:text-gray-200">Crea un tema personalizzato</h2>
           {error && <p className="text-red-500 text-sm">{error}</p>}
 
           <div className="flex gap-2 items-start">
-            {/* Emoji picker */}
             <div className="relative" ref={pickerRef}>
               <button
                 type="button"
                 onClick={() => setShowPicker(v => !v)}
-                className="w-14 h-10 text-2xl flex items-center justify-center rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors select-none"
+                className="w-14 h-10 text-2xl flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none"
                 title="Scegli emoji"
               >
                 {form.iconEmoji || '🏷️'}
@@ -211,7 +242,9 @@ export default function ThemesPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === t ? 'bg-hp-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                tab === t
+                  ? 'bg-hp-primary text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               {t === 'all' ? 'Tutti' : t === 'preset' ? '⭐ Predefiniti' : '👤 Custom'}
@@ -230,26 +263,24 @@ export default function ThemesPage() {
               >
                 <span className="text-2xl flex-shrink-0">{theme.iconEmoji || '🏷️'}</span>
                 <div className="min-w-0">
-                  <p className="font-semibold text-gray-800 truncate">
+                  <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">
                     {theme.name}
                     {theme.preset && (
-                      <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">preset</span>
+                      <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-1.5 py-0.5 rounded-full">preset</span>
                     )}
                   </p>
                   {theme.description && (
-                    <p className="text-sm text-gray-500 line-clamp-1">{theme.description}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{theme.description}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-0.5">{theme.followersCount} follower</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{theme.followersCount} follower</p>
                 </div>
               </Link>
+
               {authed && (
                 <button
                   onClick={() => handleFollow(theme)}
-                  className={`flex-shrink-0 text-sm px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                    theme.followedByMe
-                      ? 'bg-hp-primary text-white hover:bg-hp-primary/80'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={followBtnClass(theme.followedByMe)}
+                  aria-label={theme.followedByMe ? `Smetti di seguire ${theme.name}` : `Segui ${theme.name}`}
                 >
                   {theme.followedByMe ? '✓ Seguito' : '+ Segui'}
                 </button>
@@ -257,7 +288,7 @@ export default function ThemesPage() {
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="col-span-2 card text-center py-10 text-gray-500">
+            <div className="col-span-2 card text-center py-10 text-gray-500 dark:text-gray-400">
               Nessun tema trovato.
             </div>
           )}
