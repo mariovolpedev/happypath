@@ -1,0 +1,12 @@
+{{- if .Values.ingress.enabled }}
+# Google-managed TLS certificate per il dominio del frontend
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: {{ .Values.ingress.tlsManagedCertName }}
+  labels:
+    {{- include "happypath.labels" . | nindent 4 }}
+spec:
+  domains:
+    - {{ .Values.ingress.host }}
+{{- end }}

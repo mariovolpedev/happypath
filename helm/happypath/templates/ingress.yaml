@@ -1,0 +1,45 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "happypath.fullname" . }}-ingress
+  labels:
+    {{- include "happypath.labels" . | nindent 4 }}
+  annotations:
+    # GKE: usa l'IP statico pre-allocato
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.ingress.staticIpName }}
+    # GKE: managed certificate TLS
+    networking.gke.io/managed-certificates: {{ .Values.ingress.tlsManagedCertName }}
+    # Forza HTTP → HTTPS redirect
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # Tutto il traffico /api/* → backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "happypath.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          # WebSocket (STOMP) → backend
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "happypath.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          # Tutto il resto → frontend (SPA)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "happypath.fullname" . }}-frontend
+                port:
+                  number: {{ .Values.frontend.service.port }}
+{{- end }}

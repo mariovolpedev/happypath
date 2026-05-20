@@ -1,0 +1,40 @@
+{{- if .Values.minio.enabled }}
+# Job one-shot: crea il bucket 'happypath-media' alla prima installazione
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "happypath.fullname" . }}-minio-init
+  labels:
+    {{- include "happypath.labels" . | nindent 4 }}
+  annotations:
+    # Esegui solo durante helm install, non upgrade
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: minio-init
+          image: minio/mc:latest
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: MINIO_SECRET_KEY
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mc alias set local http://{{ include "happypath.fullname" . }}-minio:{{ .Values.minio.service.apiPort }} $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              mc mb --ignore-existing local/happypath-media
+              mc anonymous set download local/happypath-media
+              echo "Bucket happypath-media ready"
+{{- end }}

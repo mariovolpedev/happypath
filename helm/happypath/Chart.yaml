@@ -1,0 +1,13 @@
+apiVersion: v2
+name: happypath
+description: HappyPath — social network dei contenuti positivi (GKE deployment)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - happypath
+  - social
+  - spring-boot
+  - react
+maintainers:
+  - name: mariovolpedev

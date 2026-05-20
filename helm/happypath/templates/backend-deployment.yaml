@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "happypath.fullname" . }}-backend
+  labels:
+    {{- include "happypath.labels" . | nindent 4 }}
+    {{- include "happypath.backend.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "happypath.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "happypath.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Variabili non-sensibili da values
+            - name: SPRING_DATASOURCE_URL
+              value: {{ .Values.backend.env.SPRING_DATASOURCE_URL | quote }}
+            - name: SPRING_DATA_REDIS_PORT
+              value: {{ .Values.backend.env.SPRING_DATA_REDIS_PORT | quote }}
+            - name: MINIO_BUCKET
+              value: {{ .Values.backend.env.MINIO_BUCKET | quote }}
+            - name: HAPPYPATH_CORS_ALLOWED_ORIGINS
+              value: {{ .Values.backend.env.HAPPYPATH_CORS_ALLOWED_ORIGINS | quote }}
+            # Redis host (interno o Memorystore)
+            - name: SPRING_DATA_REDIS_HOST
+              {{- if .Values.redis.useExternal }}
+              value: {{ .Values.redis.externalHost | quote }}
+              {{- else }}
+              value: {{ include "happypath.fullname" . }}-redis
+              {{- end }}
+            # MinIO endpoint
+            - name: MINIO_ENDPOINT
+              {{- if .Values.minio.enabled }}
+              value: {{ printf "http://%s-minio:%d" (include "happypath.fullname" .) (int .Values.minio.service.apiPort) | quote }}
+              {{- else }}
+              value: "https://storage.googleapis.com"  # GCS S3-compatible
+              {{- end }}
+            - name: MINIO_PUBLIC_URL
+              {{- if .Values.minio.enabled }}
+              value: {{ printf "http://%s-minio:%d" (include "happypath.fullname" .) (int .Values.minio.service.apiPort) | quote }}
+              {{- else }}
+              value: "https://storage.googleapis.com"
+              {{- end }}
+            # Variabili sensibili da Secret
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: DB_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: DB_PASSWORD
+            - name: HAPPYPATH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: JWT_SECRET
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: MINIO_SECRET_KEY
+            - name: ACTUATOR_USER
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: ACTUATOR_USER
+            - name: ACTUATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: happypath-secrets
+                  key: ACTUATOR_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+
+        {{- if .Values.backend.cloudSqlProxy.enabled }}
+        # Cloud SQL Auth Proxy — sidecar per connessione sicura a Cloud SQL
+        - name: cloud-sql-proxy
+          image: {{ .Values.backend.cloudSqlProxy.image | quote }}
+          args:
+            - "--structured-logs"
+            - "--port=5432"
+            - {{ .Values.backend.cloudSqlProxy.instanceConnectionName | quote }}
+          securityContext:
+            runAsNonRoot: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+        {{- end }}

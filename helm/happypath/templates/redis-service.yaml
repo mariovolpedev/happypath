@@ -1,0 +1,17 @@
+{{- if not .Values.redis.useExternal }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "happypath.fullname" . }}-redis
+  labels:
+    {{- include "happypath.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "happypath.redis.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: redis
+      port: {{ .Values.redis.service.port }}
+      targetPort: redis
+      protocol: TCP
+{{- end }}

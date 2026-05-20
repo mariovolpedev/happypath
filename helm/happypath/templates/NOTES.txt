@@ -1,0 +1,22 @@
+============================================================
+HappyPath — GKE Helm Chart installato con successo!
+============================================================
+
+1. Verifica che i pod siano Running:
+   kubectl get pods -n {{ .Release.Namespace }}
+
+2. Controlla lo stato dell'Ingress (potrebbe volerci qualche minuto):
+   kubectl get ingress -n {{ .Release.Namespace }}
+
+3. La ManagedCertificate TLS potrebbe impiegare 10-60 minuti per essere provisioned da Google.
+   Monitorala con:
+   kubectl describe managedcertificate {{ .Values.ingress.tlsManagedCertName }} -n {{ .Release.Namespace }}
+
+4. URL dell'applicazione:
+   https://{{ .Values.ingress.host }}
+
+5. Per controllare i log del backend:
+   kubectl logs -l app.kubernetes.io/name=happypath-backend -n {{ .Release.Namespace }} -f
+
+⚠️  RICORDA: aggiorna i Secret in happypath-secrets con le credenziali reali!
+   Vedi: helm/DEPLOY_GUIDE.md

@@ -1,0 +1,39 @@
+# ==============================================================
+# Overrides per ambiente di PRODUZIONE
+# Usa con: helm upgrade --install happypath ./helm/happypath \
+#            -f helm/happypath/values.yaml \
+#            -f helm/happypath/values-prod.yaml
+# ==============================================================
+
+global:
+  gcpProject: "happypath-prod"
+  gcpRegion: "europe-west1"
+
+backend:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"   # sostituisci con il tag specifico del build
+  env:
+    HAPPYPATH_CORS_ALLOWED_ORIGINS: "https://happypath.io"
+  cloudSqlProxy:
+    instanceConnectionName: "happypath-prod:europe-west1:happypath-pg-prod"
+
+frontend:
+  replicaCount: 2
+  image:
+    tag: "1.0.0"
+
+redis:
+  useExternal: true
+  externalHost: "10.100.0.4"   # IP privato Memorystore (da console GCP)
+
+minio:
+  enabled: false   # In prod usa GCS
+
+ingress:
+  host: "happypath.io"
+  tlsManagedCertName: "happypath-prod-cert"
+  staticIpName: "happypath-prod-ip"
+
+serviceAccount:
+  gcpServiceAccount: "happypath-ksa@happypath-prod.iam.gserviceaccount.com"

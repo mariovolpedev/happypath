@@ -1,0 +1,19 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "happypath.fullname" . }}-minio
+  labels:
+    {{- include "happypath.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "happypath.minio.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: s3-api
+      port: {{ .Values.minio.service.apiPort }}
+      targetPort: s3-api
+    - name: console
+      port: {{ .Values.minio.service.consolePort }}
+      targetPort: console
+{{- end }}
