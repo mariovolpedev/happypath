@@ -1,5 +1,5 @@
 -- =============================================================
--- Happy Path – V2: Direct message attachment support
+-- Happy Path – V6: Direct message attachment support
 -- =============================================================
 -- Adds optional FK-like columns to direct_messages so that a
 -- message can embed a content card or a user profile.

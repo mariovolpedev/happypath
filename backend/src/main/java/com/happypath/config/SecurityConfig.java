@@ -37,7 +37,7 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final HappyPathUserDetailsService userDetailsService;
 
-    @Value("${happypath.cors.allowed-origins:*}")
+    @Value("${happypath.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
     @Bean
@@ -59,9 +59,30 @@ public class SecurityConfig {
         return new CorsFilter(source);
     }
 
+    /**
+     * Dedicated filter chain for Actuator endpoints.
+     * Requires HTTP Basic authentication with ROLE_ACTUATOR.
+     * Must be ordered before the main chain (higher precedence = lower order number).
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain actuatorFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher("/actuator/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health").permitAll()   // public liveness probe
+                        .anyRequest().hasRole("ACTUATOR")
+                )
+                .httpBasic(basic -> {})
+                .build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        log.info("Security Filter Chain");
+        log.info("Configuring main Security Filter Chain");
         return http
                 .cors(cors -> cors.configure(http))
                 .csrf(csrf -> csrf.disable())
@@ -69,35 +90,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
+                        // WebSocket handshake
+                        .requestMatchers("/ws/**").permitAll()
                         // Contenuti
                         .requestMatchers(HttpMethod.GET, "/contents/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/themes/**").permitAll()
-                        // Utenti
-                        .requestMatchers(HttpMethod.GET, "/users/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/*/profile").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/users/*/contents").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/users/*/reactions").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/users/*/comments-activity").permitAll()
-                        // Alter Ego – profilo pubblico e contenuti
-                        .requestMatchers(HttpMethod.GET, "/alter-egos/*/profile").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/alter-egos/*/contents").permitAll()
-                        // Ricerca unificata
-                        .requestMatchers(HttpMethod.GET, "/search").permitAll()
-                        // Swagger / H2 / error
-                        .requestMatchers(
-                                "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
-                        ).permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        // Ruoli
-                        .requestMatchers("/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        // Verifica identità (autenticato, non richiede ruoli speciali per submit/get)
-                        .requestMatchers("/verification-requests/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/users/*/followers").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/users/*/following").permitAll()
+                        // Swagger / OpenAPI (dev only — restrict in prod via profile)
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .headers(h -> h.frameOptions(f -> f.sameOrigin()))
-                .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -111,8 +115,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
-            throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 

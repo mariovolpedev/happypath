@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -20,31 +21,15 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * Configurazione Redis con TTL differenziati per cache name.
- *
- * FIX: usato DefaultTyping.EVERYTHING + As.WRAPPER_ARRAY invece di
- * NON_FINAL + PROPERTY.
- *
- * Il problema con NON_FINAL + PROPERTY era che Jackson serializzava i
- * List<ThemeResponse> con il type-id come primo campo dell'oggetto (PROPERTY),
- * ma al momento della deserializzazione l'array-root causava:
- *   "need String, Number of Boolean value that contains type id"
- * perché il deserializzatore cercava un campo stringa "@class" ma trovava
- * l'inizio di un array JSON.
- *
- * Con WRAPPER_ARRAY il type-id viene scritto come primo elemento dell'array:
- *   ["com.happypath.dto.response.ThemeResponse", { ...fields... }]
- * e i List<T> vengono avvolti allo stesso modo, risolvendo l'ambiguità.
+ * Configurazione Redis: CacheManager con TTL differenziati + RedisTemplate<String,Object>
+ * per eviction manuale delle chiavi di cache in UserService.
  *
  * Cache attive:
- *   content-single   → TTL 10 min  — singolo contenuto per ID
- *   themes-all       → TTL 60 min  — lista completa temi
- *   themes-presets   → TTL 60 min  — solo temi preset
- *   user-profile     → TTL  5 min  — profilo pubblico utente
- *   search-results   → TTL  2 min  — risultati di ricerca testuale
- *
- * NON cachati:
- *   feed, notifiche, messaggi privati, alter ego, moderazione, auth/JWT
+ *   content-single   → TTL 10 min
+ *   themes-all       → TTL 60 min
+ *   themes-presets   → TTL 60 min
+ *   user-profile     → TTL  5 min
+ *   search-results   → TTL  2 min
  */
 @Configuration
 @EnableCaching
@@ -56,28 +41,50 @@ public class RedisConfig {
     public static final String CACHE_USER_PROFILE    = "user-profile";
     public static final String CACHE_SEARCH_RESULTS  = "search-results";
 
-    @Bean
-    public CacheManager cacheManager(RedisConnectionFactory factory) {
-        /*
-         * ObjectMapper dedicato alla serializzazione Redis.
-         * NON riusare il bean ObjectMapper di Spring MVC: le opzioni di
-         * default typing interferirebbero con la serializzazione HTTP JSON.
-         *
-         * DefaultTyping.EVERYTHING  → include type info anche per tipi final
-         *                             (String, Boolean, Integer inclusi nelle DTO)
-         * As.WRAPPER_ARRAY          → ["fully.qualified.ClassName", { ...payload... }]
-         *                             compatibile con array/collection root.
-         */
-        ObjectMapper redisObjectMapper = new ObjectMapper()
+    /**
+     * ObjectMapper dedicato a Redis (NON condiviso con Spring MVC).
+     * Estratto come metodo privato per riutilizzarlo in entrambi i bean.
+     */
+    private ObjectMapper redisObjectMapper() {
+        return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .activateDefaultTyping(
                         LaissezFaireSubTypeValidator.instance,
                         ObjectMapper.DefaultTyping.EVERYTHING,
                         JsonTypeInfo.As.WRAPPER_ARRAY);
+    }
 
+    /**
+     * RedisTemplate<String, Object> usato da UserService per l'eviction
+     * manuale delle chiavi di cache tramite pattern matching (KEYS command).
+     *
+     * Serializzazione:
+     *  - Chiave : StringRedisSerializer  (leggibile, compatibile con le chiavi
+     *             generate da RedisCacheManager)
+     *  - Valore : GenericJackson2JsonRedisSerializer (stesso mapper del CacheManager)
+     */
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
         GenericJackson2JsonRedisSerializer jsonSerializer =
-                new GenericJackson2JsonRedisSerializer(redisObjectMapper);
+                new GenericJackson2JsonRedisSerializer(redisObjectMapper());
+
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        template.setValueSerializer(jsonSerializer);
+        template.setHashValueSerializer(jsonSerializer);
+        template.afterPropertiesSet();
+        return template;
+    }
+
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory factory) {
+        GenericJackson2JsonRedisSerializer jsonSerializer =
+                new GenericJackson2JsonRedisSerializer(redisObjectMapper());
 
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(

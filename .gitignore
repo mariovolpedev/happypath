@@ -1,35 +1,21 @@
-# Node
+# Root-level .gitignore
+
+# Node modules (should never be committed)
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
 
-# Build output
-dist/
-build/
-
-# Environment
-.env
-.env.local
-.env.*.local
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .idea/
 .vscode/
 *.iml
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Java / Maven
-target/
-*.class
-*.jar
-*.war
-*.ear
-
 # Logs
-logs/
 *.log
+
+# Environment files
+.env
+.env.local
+.env.*.local

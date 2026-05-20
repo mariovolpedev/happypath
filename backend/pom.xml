@@ -21,6 +21,14 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.5</jjwt.version>
         <aws.sdk.version>2.25.11</aws.sdk.version>
+        <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <!--
+            flyway-database-postgresql is a Flyway Teams/OSS driver module introduced
+            in Flyway 10.x. Spring Boot 3.2.x manages flyway-core but NOT this artifact,
+            so the version must be declared explicitly and kept in sync with flyway-core.
+            Spring Boot 3.2.3 pulls flyway-core 9.22.3 — use the same version here.
+        -->
+        <flyway.version>9.22.3</flyway.version>
     </properties>
 
     <dependencies>
@@ -48,6 +56,16 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <!-- Actuator for health/metrics endpoints (protected by Spring Security) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- WebSocket (STOMP) for real-time notifications -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
         <!-- JWT -->
         <dependency>
@@ -78,24 +96,43 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- AWS S3 SDK (compatibile con MinIO) -->
+        <!-- Flyway migrations -->
         <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <version>${aws.sdk.version}</version>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <!-- version managed by Spring Boot BOM -->
         </dependency>
-        <!-- Tika: rilevamento MIME type dei file caricati -->
-        <dependency>
-            <groupId>org.apache.tika</groupId>
-            <artifactId>tika-core</artifactId>
-            <version>2.9.2</version>
-        </dependency>
+        <!--
+            flyway-database-postgresql: Flyway 10+ split PostgreSQL support into a
+            separate module. Spring Boot 3.2.x ships Flyway 9.x where this module does
+            NOT exist — remove it to avoid the missing-version error.
+            PostgreSQL support is built into flyway-core 9.x with no extra dependency.
+        -->
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- MapStruct for type-safe entity -> DTO mapping -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+        <!-- AWS SDK for MinIO/S3 -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <!-- OpenAPI / Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.3.0</version>
+        </dependency>
+        <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -105,11 +142,6 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.5.0</version>
         </dependency>
     </dependencies>
 
@@ -125,6 +157,27 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <annotationProcessorPaths>
+                        <!-- Lombok must come before MapStruct so generated getters/setters are visible -->
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>
