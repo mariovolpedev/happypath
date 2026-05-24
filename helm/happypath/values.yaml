@@ -1,12 +1,8 @@
 # ==============================================================
-# HappyPath — Helm values (GKE)
-# Personalizza questi valori prima del deploy in produzione.
+# HappyPath — Helm values (BASE)
+# Valori condivisi tra tutti gli ambienti.
+# Sovrascrivi con values-gke.yaml o values-oci.yaml.
 # ==============================================================
-
-global:
-  # Nome del progetto GCP e region (usati per Cloud SQL, GCS, ecc.)
-  gcpProject: "my-gcp-project"
-  gcpRegion: "europe-west1"
 
 # ---------------------------------------------------------------
 # Backend (Spring Boot)
@@ -14,7 +10,7 @@ global:
 backend:
   replicaCount: 2
   image:
-    repository: europe-west1-docker.pkg.dev/my-gcp-project/happypath/backend
+    repository: ""   # OBBLIGATORIO: sovrascrivi nel values specifico per cloud
     tag: "latest"
     pullPolicy: IfNotPresent
   service:
@@ -28,17 +24,14 @@ backend:
       cpu: "1000m"
       memory: "1Gi"
   env:
-    # Le credenziali sensibili sono lette dai Secret (vedi templates/secrets.yaml)
-    SPRING_DATASOURCE_URL: "jdbc:postgresql://127.0.0.1:5432/happypath"
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://happypath-postgres:5432/happypath"
     SPRING_DATA_REDIS_PORT: "6379"
     MINIO_BUCKET: "happypath-media"
-    # CORS: inserisci il dominio reale del frontend
     HAPPYPATH_CORS_ALLOWED_ORIGINS: "https://happypath.example.com"
-  # Abilita Cloud SQL Auth Proxy come sidecar
+  # Sidecar Cloud SQL Auth Proxy — solo GKE. Disabilitato di default.
   cloudSqlProxy:
-    enabled: true
-    # Esempio: my-gcp-project:europe-west1:happypath-pg
-    instanceConnectionName: "my-gcp-project:europe-west1:happypath-pg"
+    enabled: false
+    instanceConnectionName: ""
     image: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11"
   hpa:
     enabled: true
@@ -52,7 +45,7 @@ backend:
 frontend:
   replicaCount: 2
   image:
-    repository: europe-west1-docker.pkg.dev/my-gcp-project/happypath/frontend
+    repository: ""   # OBBLIGATORIO: sovrascrivi nel values specifico per cloud
     tag: "latest"
     pullPolicy: IfNotPresent
   service:
@@ -72,13 +65,33 @@ frontend:
     targetCPUUtilizationPercentage: 70
 
 # ---------------------------------------------------------------
-# Redis (Memorystore o pod interno)
-# Per produzione GKE usa Memorystore e imposta useExternal: true
+# PostgreSQL interno (usato quando non c'è un DB managed esterno)
+# ---------------------------------------------------------------
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  service:
+    port: 5432
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  persistence:
+    enabled: true
+    storageClass: ""   # sovrascritto dal values cloud-specifico
+    size: 10Gi
+
+# ---------------------------------------------------------------
+# Redis
 # ---------------------------------------------------------------
 redis:
-  useExternal: false          # true = punta a Memorystore
-  externalHost: ""            # es. 10.0.0.3 (IP Memorystore)
-  # Deploy interno (solo se useExternal: false)
+  useExternal: false
+  externalHost: ""
   image:
     repository: redis
     tag: "7-alpine"
@@ -93,15 +106,14 @@ redis:
       memory: "256Mi"
   persistence:
     enabled: true
-    storageClass: "standard-rwo"
+    storageClass: ""   # sovrascritto dal values cloud-specifico
     size: 2Gi
 
 # ---------------------------------------------------------------
-# MinIO — solo per ambienti non-prod.
-# In produzione usa Google Cloud Storage + HMAC keys.
+# MinIO
 # ---------------------------------------------------------------
 minio:
-  enabled: true               # false = usa GCS in produzione
+  enabled: true
   image:
     repository: minio/minio
     tag: "latest"
@@ -117,25 +129,29 @@ minio:
       memory: "512Mi"
   persistence:
     enabled: true
-    storageClass: "standard-rwo"
-    size: 10Gi
+    storageClass: ""   # sovrascritto dal values cloud-specifico
+    size: 20Gi
 
 # ---------------------------------------------------------------
-# Ingress (GKE Ingress → Google Cloud Load Balancer)
+# Ingress
 # ---------------------------------------------------------------
 ingress:
   enabled: true
-  className: "gce"            # oppure "nginx" se usi NGINX Ingress Controller
+  className: "nginx"   # default NGINX; GKE sovrascrive con "gce"
   host: "happypath.example.com"
-  # ARN/name del managed certificate (creato separatamente)
-  tlsManagedCertName: "happypath-managed-cert"
-  staticIpName: "happypath-static-ip"
+  tls:
+    enabled: false     # abilitato nel values cloud-specifico
+    secretName: "happypath-tls"
+  # Annotazioni GKE-specific (ignorate su OCI)
+  gke:
+    enabled: false
+    tlsManagedCertName: "happypath-managed-cert"
+    staticIpName: "happypath-static-ip"
 
 # ---------------------------------------------------------------
-# Service Account GKE (Workload Identity)
+# Service Account
 # ---------------------------------------------------------------
 serviceAccount:
   create: true
   name: "happypath-sa"
-  # KSA annotata con il GSA per Workload Identity
-  gcpServiceAccount: "happypath-ksa@my-gcp-project.iam.gserviceaccount.com"
+  annotations: {}

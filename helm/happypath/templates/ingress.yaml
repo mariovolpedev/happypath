@@ -6,19 +6,34 @@ metadata:
   labels:
     {{- include "happypath.labels" . | nindent 4 }}
   annotations:
-    # GKE: usa l'IP statico pre-allocato
-    kubernetes.io/ingress.global-static-ip-name: {{ .Values.ingress.staticIpName }}
-    # GKE: managed certificate TLS
-    networking.gke.io/managed-certificates: {{ .Values.ingress.tlsManagedCertName }}
-    # Forza HTTP → HTTPS redirect
+    {{- if .Values.ingress.gke.enabled }}
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.ingress.gke.staticIpName }}
+    networking.gke.io/managed-certificates: {{ .Values.ingress.gke.tlsManagedCertName }}
     kubernetes.io/ingress.allow-http: "false"
+    {{- else }}
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    {{- if .Values.ingress.tls.enabled }}
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- end }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+  {{- if and .Values.ingress.tls.enabled (not .Values.ingress.gke.enabled) }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
-          # Tutto il traffico /api/* → backend
           - path: /api
             pathType: Prefix
             backend:
@@ -26,7 +41,6 @@ spec:
                 name: {{ include "happypath.fullname" . }}-backend
                 port:
                   number: {{ .Values.backend.service.port }}
-          # WebSocket (STOMP) → backend
           - path: /ws
             pathType: Prefix
             backend:
@@ -34,7 +48,6 @@ spec:
                 name: {{ include "happypath.fullname" . }}-backend
                 port:
                   number: {{ .Values.backend.service.port }}
-          # Tutto il resto → frontend (SPA)
           - path: /
             pathType: Prefix
             backend:

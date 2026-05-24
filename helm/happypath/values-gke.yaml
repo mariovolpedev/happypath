@@ -1,0 +1,46 @@
+# ==============================================================
+# HappyPath — Override per Google Kubernetes Engine (GKE)
+# Uso:
+#   helm upgrade --install happypath ./helm/happypath \
+#     -f helm/happypath/values.yaml \
+#     -f helm/happypath/values-gke.yaml \
+#     -f helm/happypath/values-prod.yaml   # opzionale
+# ==============================================================
+
+backend:
+  image:
+    repository: europe-west1-docker.pkg.dev/my-gcp-project/happypath/backend
+  env:
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://127.0.0.1:5432/happypath"
+  cloudSqlProxy:
+    enabled: true
+    instanceConnectionName: "my-gcp-project:europe-west1:happypath-pg"
+
+frontend:
+  image:
+    repository: europe-west1-docker.pkg.dev/my-gcp-project/happypath/frontend
+
+# Su GKE usiamo Cloud SQL managed -> PostgreSQL interno disabilitato
+postgres:
+  enabled: false
+
+redis:
+  persistence:
+    storageClass: "standard-rwo"
+
+minio:
+  persistence:
+    storageClass: "standard-rwo"
+
+ingress:
+  className: "gce"
+  tls:
+    enabled: false   # gestito da ManagedCertificate GKE
+  gke:
+    enabled: true
+    tlsManagedCertName: "happypath-managed-cert"
+    staticIpName: "happypath-static-ip"
+
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: "happypath-ksa@my-gcp-project.iam.gserviceaccount.com"

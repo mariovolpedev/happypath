@@ -1,0 +1,105 @@
+# ==============================================================
+# HappyPath — Override per Oracle Cloud Infrastructure (OKE)
+# Always Free Tier: 4 core ARM A1, 24 GB RAM
+#
+# Uso:
+#   helm upgrade --install happypath ./helm/happypath \
+#     --namespace happypath \
+#     -f helm/happypath/values.yaml \
+#     -f helm/happypath/values-oci.yaml
+# ==============================================================
+
+backend:
+  replicaCount: 1   # Always Free: risorse limitate, 1 replica basta per dev/staging
+  image:
+    # Sostituisci con il tuo namespace OCIR:
+    # <region-key>.ocir.io/<tenancy-namespace>/happypath/backend
+    repository: eu-frankfurt-1.ocir.io/MY_TENANCY/happypath/backend
+    tag: "latest"
+  env:
+    # Il backend punta al pod PostgreSQL interno (niente Cloud SQL su OCI free)
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://happypath-postgres:5432/happypath"
+    SPRING_DATA_REDIS_PORT: "6379"
+    MINIO_BUCKET: "happypath-media"
+    HAPPYPATH_CORS_ALLOWED_ORIGINS: "https://happypath.example.com"
+  cloudSqlProxy:
+    enabled: false   # NON usato su OCI
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "768Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+  hpa:
+    enabled: false   # Disabilita HPA su Always Free (nodi fissi)
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: eu-frankfurt-1.ocir.io/MY_TENANCY/happypath/frontend
+    tag: "latest"
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+  hpa:
+    enabled: false
+
+# PostgreSQL interno abilitato (niente managed DB nel free tier OCI)
+postgres:
+  enabled: true
+  persistence:
+    storageClass: "oci-bv"   # Block Volume OCI (classe default OKE)
+    size: 10Gi
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+redis:
+  useExternal: false
+  persistence:
+    storageClass: "oci-bv"
+    size: 2Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+
+minio:
+  enabled: true
+  persistence:
+    storageClass: "oci-bv"
+    size: 20Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+ingress:
+  enabled: true
+  className: "nginx"   # NGINX Ingress Controller su OKE
+  host: "happypath.example.com"
+  tls:
+    enabled: true
+    secretName: "happypath-tls"   # popolato da cert-manager (Let's Encrypt)
+  gke:
+    enabled: false   # annotazioni GKE disabilitate
+
+serviceAccount:
+  create: true
+  name: "happypath-sa"
+  annotations: {}   # Niente Workload Identity su OCI free tier

@@ -24,7 +24,6 @@ spec:
             - containerPort: 8080
               name: http
           env:
-            # Variabili non-sensibili da values
             - name: SPRING_DATASOURCE_URL
               value: {{ .Values.backend.env.SPRING_DATASOURCE_URL | quote }}
             - name: SPRING_DATA_REDIS_PORT
@@ -33,19 +32,17 @@ spec:
               value: {{ .Values.backend.env.MINIO_BUCKET | quote }}
             - name: HAPPYPATH_CORS_ALLOWED_ORIGINS
               value: {{ .Values.backend.env.HAPPYPATH_CORS_ALLOWED_ORIGINS | quote }}
-            # Redis host (interno o Memorystore)
             - name: SPRING_DATA_REDIS_HOST
               {{- if .Values.redis.useExternal }}
               value: {{ .Values.redis.externalHost | quote }}
               {{- else }}
-              value: {{ include "happypath.fullname" . }}-redis
+              value: {{ printf "%s-redis" (include "happypath.fullname" .) | quote }}
               {{- end }}
-            # MinIO endpoint
             - name: MINIO_ENDPOINT
               {{- if .Values.minio.enabled }}
               value: {{ printf "http://%s-minio:%d" (include "happypath.fullname" .) (int .Values.minio.service.apiPort) | quote }}
               {{- else }}
-              value: "https://storage.googleapis.com"  # GCS S3-compatible
+              value: "https://storage.googleapis.com"
               {{- end }}
             - name: MINIO_PUBLIC_URL
               {{- if .Values.minio.enabled }}
@@ -53,7 +50,6 @@ spec:
               {{- else }}
               value: "https://storage.googleapis.com"
               {{- end }}
-            # Variabili sensibili da Secret
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -107,7 +103,6 @@ spec:
             {{- toYaml .Values.backend.resources | nindent 12 }}
 
         {{- if .Values.backend.cloudSqlProxy.enabled }}
-        # Cloud SQL Auth Proxy — sidecar per connessione sicura a Cloud SQL
         - name: cloud-sql-proxy
           image: {{ .Values.backend.cloudSqlProxy.image | quote }}
           args:
